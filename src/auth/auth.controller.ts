@@ -12,13 +12,23 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() body: { username: string; password: string }) {
-    const user = await this.authService.validateUser(
+    const tokens = await this.authService.validateUser(
       body.username,
       body.password,
     );
-    if (!user) {
+    if (!tokens) {
       return { message: 'Invalid credentials' };
     }
-    return { message: 'Login successful' };
+    return tokens; // Теперь возвращаем access_token и refresh_token
+  }
+
+  @Post('refresh')
+  async refresh(@Body() body: { refreshToken: string }) {
+    return this.authService.refreshToken(body.refreshToken);
+  }
+
+  @Post('logout')
+  async logout(@Body() body: { userId: string }) {
+    return this.authService.logout(body.userId);
   }
 }
