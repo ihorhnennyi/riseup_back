@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { Model } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { User, UserDocument, UserRole } from './schemas/user.schema';
 
 @Injectable()
 export class AuthService {
@@ -12,9 +12,21 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(username: string, password: string): Promise<User> {
+  async register(
+    username: string,
+    password: string,
+    role?: UserRole,
+  ): Promise<User> {
+    const isFirstUser = (await this.userModel.countDocuments()) === 0;
+    const roleToAssign = isFirstUser ? UserRole.ADMIN : (role ?? UserRole.USER);
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new this.userModel({ username, password: hashedPassword });
+    const newUser = new this.userModel({
+      username,
+      password: hashedPassword,
+      role: roleToAssign,
+    });
+
     return newUser.save();
   }
 
@@ -24,7 +36,8 @@ export class AuthService {
       return { message: 'Invalid credentials' };
     }
 
-    const payload = { username: user.username, sub: user._id };
+    const payload = { username: user.username, sub: user._id, role: user.role };
+
     const token = this.jwtService.sign(payload);
 
     return { access_token: token };
