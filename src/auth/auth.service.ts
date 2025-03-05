@@ -37,9 +37,57 @@ export class AuthService {
     }
 
     const payload = { username: user.username, sub: user._id, role: user.role };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-    const token = this.jwtService.sign(payload);
+    user.refreshToken = await bcrypt.hash(refreshToken, 10);
+    await user.save();
 
-    return { access_token: token };
+    return { access_token: accessToken, refresh_token: refreshToken };
+  }
+
+  async refreshToken(refreshToken: string): Promise<any> {
+    if (!refreshToken) {
+      throw new Error('Refresh token is missing');
+    }
+
+    try {
+      const decoded = this.jwtService.verify(refreshToken);
+
+      const user = await this.userModel.findById(decoded.sub).exec();
+
+      if (!user || !user.refreshToken) {
+        throw new Error('User not found or no refreshToken stored');
+      }
+
+      const isTokenValid = await bcrypt.compare(
+        refreshToken,
+        user.refreshToken,
+      );
+      if (!isTokenValid) {
+        throw new Error('Invalid refresh token');
+      }
+
+      const newAccessToken = this.jwtService.sign({
+        username: user.username,
+        sub: user._id,
+        role: user.role,
+      });
+
+      return { access_token: newAccessToken };
+    } catch (err) {
+      console.error('Refresh token error:', err.message);
+      throw new Error('Invalid or expired refresh token');
+    }
+  }
+
+  async logout(userId: string) {
+    const user = await this.userModel.findById(userId).exec();
+    if (user) {
+      user.refreshToken = undefined;
+
+      await user.save();
+    }
+    return { message: 'Logged out successfully' };
   }
 }
