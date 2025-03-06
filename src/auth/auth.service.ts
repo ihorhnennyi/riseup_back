@@ -50,7 +50,12 @@ export class AuthService {
   }
 
   private async generateTokens(user: UserDocument) {
-    const payload = { username: user.username, sub: user._id, role: user.role };
+    const payload = {
+      username: user.username,
+      sub: user.id.toString(),
+      role: user.role,
+    };
+
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
@@ -82,18 +87,24 @@ export class AuthService {
       }
 
       return this.generateTokens(user);
-    } catch (err) {
-      console.error('Refresh token error:', err.message);
-      throw new Error('Invalid or expired refresh token');
+    } catch (error) {
+      throw new Error('Refresh token expired, please login again');
     }
   }
 
-  async logout(userId: string) {
-    const user = await this.userModel.findById(userId).exec();
-    if (user) {
-      user.refreshToken = undefined;
-      await user.save();
+  async logout(userId: string): Promise<{ message: string }> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
     }
-    return { message: 'Logged out successfully' };
+
+    if (!user.refreshToken) {
+      throw new Error('User already logged out');
+    }
+
+    user.refreshToken = undefined;
+    await user.save();
+
+    return { message: 'User logged out successfully' };
   }
 }

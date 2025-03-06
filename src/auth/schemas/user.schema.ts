@@ -16,6 +16,7 @@ export class User {
   role: UserRole;
 
   @Prop({ default: undefined })
+  @Prop()
   refreshToken?: string;
 }
 
