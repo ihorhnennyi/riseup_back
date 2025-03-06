@@ -1,16 +1,10 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import { JwtService } from '@nestjs/jwt';
-import { UserRole } from './schemas/user.schema';
+import { UserRole } from '../enum/user-role.enum';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private jwtService: JwtService,
-    private configService: ConfigService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
@@ -21,20 +15,13 @@ export class RolesGuard implements CanActivate {
     if (!requiredRoles) return true;
 
     const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+    const user = request.user;
 
-    const token = authHeader.split(' ')[1];
-    try {
-      const decoded = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
-
-      request.user = decoded;
-      return requiredRoles.includes(decoded.role);
-    } catch (err) {
-      console.log(`JWT Verification Error: ${err.message}. Token: ${token}`);
+    if (!user) {
+      console.error('Пользователь не найден в запросе');
       return false;
     }
+
+    return requiredRoles.includes(user.role);
   }
 }
