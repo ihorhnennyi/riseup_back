@@ -1,13 +1,16 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(private jwtService: JwtService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
     const authHeader = request.headers.authorization;
+    const cookieToken = request.cookies?.accessToken;
+
     const allowedRoutes = ['/auth/login', '/auth/register', '/auth/refresh'];
 
     if (allowedRoutes.includes(request.url)) {
@@ -15,19 +18,24 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('Нет заголовка Authorization');
-      return false;
+    let token: string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (cookieToken) {
+      token = cookieToken;
     }
 
-    const token = authHeader.split(' ')[1];
+    if (!token) {
+      console.error('Нет токена в Authorization или Cookies');
+      return false;
+    }
 
     try {
       const decoded = this.jwtService.verify(token, {
         secret: process.env.JWT_SECRET,
       });
 
-      if (!decoded || !decoded.sub || !decoded.role) {
+      if (!decoded?.sub || !decoded?.role) {
         console.error('Токен не содержит sub или role:', decoded);
         return false;
       }
@@ -38,6 +46,7 @@ export class JwtAuthGuard implements CanActivate {
         role: decoded.role,
       };
 
+      console.log('Успешная валидация JWT');
       return true;
     } catch (err) {
       console.error('Ошибка валидации JWT:', err.message);
