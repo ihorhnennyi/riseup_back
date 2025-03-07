@@ -31,13 +31,17 @@ export class AuthService {
     return newUser.save();
   }
 
-  async login(username: string, password: string): Promise<any> {
+  async login(
+    username: string,
+    password: string,
+    rememberMe: boolean,
+  ): Promise<any> {
     const user = await this.userModel.findOne({ username }).exec();
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return { message: 'Invalid credentials' };
     }
 
-    return this.generateTokens(user);
+    return this.generateTokens(user, rememberMe);
   }
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -49,7 +53,10 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
-  private async generateTokens(user: UserDocument) {
+  private async generateTokens(
+    user: UserDocument,
+    rememberMe: boolean = false,
+  ) {
     const payload = {
       username: user.username,
       sub: user.id.toString(),
@@ -57,9 +64,12 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: rememberMe ? '30d' : '1d',
+    });
 
-    user.refreshToken = await bcrypt.hash(refreshToken, 10);
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    user.refreshToken = hashedRefreshToken;
     await user.save();
 
     return { access_token: accessToken, refresh_token: refreshToken };
@@ -85,6 +95,9 @@ export class AuthService {
       if (!isTokenValid) {
         throw new Error('Invalid refresh token');
       }
+
+      user.refreshToken = undefined;
+      await user.save();
 
       return this.generateTokens(user);
     } catch (error) {
