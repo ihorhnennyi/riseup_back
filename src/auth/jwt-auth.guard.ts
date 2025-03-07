@@ -14,7 +14,6 @@ export class JwtAuthGuard implements CanActivate {
     const allowedRoutes = ['/auth/login', '/auth/register', '/auth/refresh'];
 
     if (allowedRoutes.includes(request.url)) {
-      console.log('Разрешённый маршрут, пропускаем без авторизации');
       return true;
     }
 
@@ -36,7 +35,6 @@ export class JwtAuthGuard implements CanActivate {
       });
 
       if (!decoded?.sub || !decoded?.role) {
-        console.error('Токен не содержит sub или role:', decoded);
         return false;
       }
 
@@ -46,10 +44,8 @@ export class JwtAuthGuard implements CanActivate {
         role: decoded.role,
       };
 
-      console.log('Успешная валидация JWT');
       return true;
     } catch (err) {
-      console.error('Ошибка валидации JWT:', err.message);
       return false;
     }
   }

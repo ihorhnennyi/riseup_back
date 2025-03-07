@@ -82,8 +82,8 @@ export class AuthService {
 
     try {
       const decoded = this.jwtService.verify(refreshToken);
-      const user = await this.userModel.findById(decoded.sub).exec();
 
+      const user = await this.userModel.findById(decoded.sub).exec();
       if (!user || !user.refreshToken) {
         throw new Error('User not found or no refreshToken stored');
       }
@@ -96,11 +96,9 @@ export class AuthService {
         throw new Error('Invalid refresh token');
       }
 
-      user.refreshToken = undefined;
-      await user.save();
-
       return this.generateTokens(user);
     } catch (error) {
+      console.error('Refresh token error:', error.message);
       throw new Error('Refresh token expired, please login again');
     }
   }
@@ -119,5 +117,17 @@ export class AuthService {
     await user.save();
 
     return { message: 'User logged out successfully' };
+  }
+
+  async logoutAll(userId: string): Promise<{ message: string }> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    user.refreshToken = undefined;
+    await user.save();
+
+    return { message: 'Logged out from all devices' };
   }
 }
