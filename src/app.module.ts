@@ -8,6 +8,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { BranchModule } from './branches/branch.module';
 import { CityModule } from './city/city.module';
 import { LoggerMiddleware } from './middleware/logger.middleware';
 import { StatusModule } from './status/status.module';
@@ -30,6 +31,7 @@ import { StatusModule } from './status/status.module';
     ]),
     CityModule,
     StatusModule,
+    BranchModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
