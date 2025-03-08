@@ -11,50 +11,43 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: 'http://localhost:3000', // Убедитесь, что это совпадает с вашим клиентом
-    credentials: true, // Включаем передачу куков
+    origin: 'http://localhost:3000',
+    credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN'],
     exposedHeaders: ['X-XSRF-TOKEN'],
   });
 
   app.use((req, res, next) => {
-    const swaggerUrls = ['/api/docs', '/api/docs-json', '/auth/csrf-token'];
-    if (
-      swaggerUrls.includes(req.originalUrl) ||
-      req.originalUrl.startsWith('/api/docs')
-    ) {
-      return next();
-    }
+    console.log('Cookies:', req.cookies);
     next();
   });
 
-  // CSRF Middleware
   app.use(
     csurf({
       cookie: {
         key: '_csrf',
         httpOnly: true,
-        secure: false, // В dev-режиме false, на проде true
+        secure: false,
         sameSite: 'lax',
       },
     }),
   );
 
-  // Middleware для отправки CSRF-токена клиенту
   app.use((req, res, next) => {
-    const csrfToken = req.csrfToken();
-    res.cookie('XSRF-TOKEN', csrfToken, {
-      httpOnly: false,
-      secure: false,
-      sameSite: 'lax',
-    });
-
+    if (req.method === 'GET' && req.originalUrl === '/auth/csrf-token') {
+      const csrfToken = req.csrfToken();
+      res.cookie('XSRF-TOKEN', csrfToken, {
+        httpOnly: false,
+        secure: false,
+        sameSite: 'lax',
+      });
+      return res.json({ csrfToken });
+    }
     next();
   });
 
   app.useGlobalPipes(new ValidationPipe());
 
-  // Swagger API Docs с `withCredentials: true`
   const config = new DocumentBuilder()
     .setTitle('RiseUP API')
     .setDescription('Документация API')
@@ -77,8 +70,7 @@ async function bootstrap() {
             row.startsWith('XSRF-TOKEN='),
           );
           if (xsrfCookie) {
-            const xsrfToken = xsrfCookie.split('=')[1];
-            req.headers['X-XSRF-TOKEN'] = xsrfToken;
+            req.headers['X-XSRF-TOKEN'] = xsrfCookie.split('=')[1];
           }
         }
         return req;
