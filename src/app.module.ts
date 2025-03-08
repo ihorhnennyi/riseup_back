@@ -9,7 +9,8 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { CityModule } from './city/city.module';
-import { LoggerMiddleware } from './middleware/logger.middleware'; // ✅ Добавляем логирование
+import { LoggerMiddleware } from './middleware/logger.middleware';
+import { StatusModule } from './status/status.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { LoggerMiddleware } from './middleware/logger.middleware'; // ✅ Доб
       },
     ]),
     CityModule,
+    StatusModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

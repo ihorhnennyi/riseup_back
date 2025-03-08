@@ -17,7 +17,7 @@ import { AuthRefreshDto } from './dto/auth-refresh.dto';
 import { AuthRegisterDto } from './dto/auth-register.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
-@ApiTags('Auth') // Swagger тег
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -49,7 +49,7 @@ export class AuthController {
   }
 
   @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 60 } }) // Ограничение: 5 запросов в минуту
+  @Throttle({ default: { limit: 5, ttl: 60 } })
   @ApiOperation({ summary: 'Авторизация пользователя' })
   @ApiResponse({
     status: 201,

@@ -20,8 +20,6 @@ export class LoggerMiddleware implements NestMiddleware {
       } else {
         this.logger.log(logMessage.trim());
       }
-
-      // ✅ Записываем в файл
       this.writeLogToFile(logMessage);
     });
 

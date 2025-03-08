@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuthModule } from '../auth/auth.module'; // 🔥 Импортируем AuthModule для использования JwtService
+import { AuthModule } from '../auth/auth.module';
 import { CityController } from './city.controller';
 import { CityService } from './city.service';
 import { City, CitySchema } from './schemas/city.schema';
@@ -8,7 +8,7 @@ import { City, CitySchema } from './schemas/city.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: City.name, schema: CitySchema }]),
-    AuthModule, // ✅ Добавляем AuthModule
+    AuthModule,
   ],
   controllers: [CityController],
   providers: [CityService],
