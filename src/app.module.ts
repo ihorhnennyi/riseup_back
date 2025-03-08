@@ -8,6 +8,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { CityModule } from './city/city.module';
 import { LoggerMiddleware } from './middleware/logger.middleware'; // ✅ Добавляем логирование
 
 @Module({
@@ -26,6 +27,7 @@ import { LoggerMiddleware } from './middleware/logger.middleware'; // ✅ Доб
         ttl: 60,
       },
     ]),
+    CityModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
