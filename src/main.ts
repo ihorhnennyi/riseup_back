@@ -3,12 +3,13 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import * as csurf from 'csurf';
+import { Request, Response } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(cookieParser());
+  app.use(cookieParser()); // Используем cookieParser
 
   app.enableCors({
     origin: 'http://localhost:5173',
@@ -17,11 +18,13 @@ async function bootstrap() {
     exposedHeaders: ['X-XSRF-TOKEN'],
   });
 
-  app.use((req, res, next) => {
+  // Логируем куки для отладки
+  app.use((req: Request, res: Response, next) => {
     console.log('Cookies:', req.cookies);
     next();
   });
 
+  // Middleware для CSRF-защиты
   app.use(
     csurf({
       cookie: {
@@ -30,24 +33,24 @@ async function bootstrap() {
         secure: false,
         sameSite: 'lax',
       },
+      ignoreMethods: ['GET', 'HEAD', 'OPTIONS'], // Игнорируем CSRF для безопасных запросов
     }),
   );
 
-  app.use((req, res, next) => {
-    if (req.method === 'GET' && req.originalUrl === '/auth/csrf-token') {
-      const csrfToken = req.csrfToken();
-      res.cookie('XSRF-TOKEN', csrfToken, {
-        httpOnly: false,
-        secure: false,
-        sameSite: 'lax',
-      });
-      return res.json({ csrfToken });
-    }
-    next();
+  // Эндпоинт для получения CSRF-токена
+  app.use('/auth/csrf-token', (req: Request, res: Response) => {
+    const csrfToken = req.csrfToken();
+    res.cookie('XSRF-TOKEN', csrfToken, {
+      httpOnly: false, // Доступен в JS
+      secure: false,
+      sameSite: 'lax',
+    });
+    return res.json({ csrfToken });
   });
 
   app.useGlobalPipes(new ValidationPipe());
 
+  // Swagger-документация
   const config = new DocumentBuilder()
     .setTitle('RiseUP API')
     .setDescription('Документация API')
