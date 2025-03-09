@@ -6,9 +6,12 @@ import {
   Param,
   Post,
   Put,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -21,6 +24,27 @@ import { StatusService } from './status.service';
 @Controller('statuses')
 export class StatusController {
   constructor(private readonly statusService: StatusService) {}
+
+  @Get('csrf-token')
+  @ApiOperation({ summary: 'Получить CSRF токен' })
+  @ApiResponse({ status: 200, description: 'CSRF токен успешно получен' })
+  getCsrfToken(@Req() req: Request, @Res() res: Response) {
+    if (typeof req.csrfToken === 'function') {
+      const csrfToken = req.csrfToken();
+
+      res.cookie('XSRF-TOKEN', csrfToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+
+      return res.json({ csrfToken });
+    }
+
+    return res
+      .status(500)
+      .json({ message: 'CSRF middleware не настроен корректно' });
+  }
 
   @Post()
   @Roles(UserRole.ADMIN)

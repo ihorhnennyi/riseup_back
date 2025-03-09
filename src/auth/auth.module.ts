@@ -11,9 +11,9 @@ import { User, UserSchema } from './schemas/user.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    ConfigModule,
+    ConfigModule.forRoot(), // ✅ Подключает .env глобально
     JwtModule.registerAsync({
-      imports: [ConfigModule],
+      imports: [ConfigModule], // 🔥 Это правильно!
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),

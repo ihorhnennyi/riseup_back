@@ -12,17 +12,13 @@ export class RolesGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    if (!requiredRoles) {
-      return true;
-    }
-
     if (!requiredRoles) return true;
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user) {
-      console.error('Пользователь не найден в запросе');
+    if (!user || !user.role) {
+      console.error('❌ Ошибка: Пользователь не найден или нет роли');
       return false;
     }
 
