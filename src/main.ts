@@ -3,7 +3,9 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as cookieParser from 'cookie-parser';
 import * as csurf from 'csurf';
+import * as express from 'express';
 import { Request, Response } from 'express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -81,6 +83,7 @@ async function bootstrap() {
     },
   });
 
+  app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
   await app.listen(8000);
 }
 

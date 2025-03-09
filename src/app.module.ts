@@ -12,6 +12,7 @@ import { BranchModule } from './branches/branch.module';
 import { CityModule } from './city/city.module';
 import { LoggerMiddleware } from './middleware/logger.middleware';
 import { StatusModule } from './status/status.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { StatusModule } from './status/status.module';
         ttl: 60,
       },
     ]),
+    UserModule,
     CityModule,
     StatusModule,
     BranchModule,

@@ -1,41 +1,35 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
-import { UserRole } from '../../enum/user-role.enum';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class AuthRegisterDto {
+  @ApiProperty({ example: 'Игорь', description: 'Имя пользователя' })
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
+
+  @ApiProperty({ example: 'Тестов', description: 'Фамилия пользователя' })
+  @IsOptional() // ✅ Теперь фамилия не обязательна
+  @IsString()
+  lastName?: string;
+
+  @ApiProperty({ example: '+1234567890', description: 'Телефон' })
+  @IsOptional() // ✅ Теперь телефон не обязателен
+  @IsString()
+  phone?: string;
+
   @ApiProperty({
-    example: 'newuser@gmail.com',
+    example: 'igor@example.com',
     description: 'Email пользователя',
   })
-  @IsEmail({}, { message: 'Некорректный email' })
-  @IsNotEmpty({ message: 'Email обязателен' })
-  username: string;
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
 
-  @ApiProperty({
-    example: 'SecurePass123!',
-    description: 'Пароль (минимум 6 символов)',
-  })
-  @IsString({ message: 'Пароль должен быть строкой' })
-  @IsNotEmpty({ message: 'Пароль обязателен' })
-  @MinLength(6, { message: 'Пароль должен быть минимум 6 символов' })
+  @ApiProperty({ example: 'password123', description: 'Пароль' })
+  @IsString()
+  @IsNotEmpty()
   password: string;
 
-  @ApiProperty({
-    example: UserRole.USER,
-    enum: UserRole,
-    description: 'Роль пользователя (по умолчанию user)',
-    required: false,
-  })
-  @IsOptional()
-  @Transform(({ value }) => value as UserRole)
-  @IsEnum(UserRole, { message: 'Роль должна быть user или admin' })
-  role?: UserRole;
+  @ApiProperty({ example: 'admin', description: 'Роль пользователя' })
+  role?: string;
 }

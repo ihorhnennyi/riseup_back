@@ -40,9 +40,10 @@ export class JwtAuthGuard implements CanActivate {
 
       request.user = {
         id: decoded.sub,
-        username: decoded.username,
+        email: decoded.email,
         role: decoded.role,
       };
+      console.log('✅ JwtAuthGuard: ', request.user);
 
       return true;
     } catch (err) {

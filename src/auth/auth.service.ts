@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Model } from 'mongoose';
 import { UserRole } from '../enum/user-role.enum';
+import { AuthRegisterDto } from './dto/auth-register.dto';
 import { User, UserDocument } from './schemas/user.schema';
 
 @Injectable()
@@ -16,37 +17,37 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(
-    username: string,
-    password: string,
-    role?: UserRole,
-  ): Promise<User> {
+  async register(dto: AuthRegisterDto): Promise<User> {
     const isFirstUser = (await this.userModel.countDocuments()) === 0;
-    const roleToAssign = isFirstUser ? UserRole.ADMIN : (role ?? UserRole.USER);
+    const roleToAssign = isFirstUser
+      ? UserRole.ADMIN
+      : (dto.role ?? UserRole.USER);
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
     const newUser = new this.userModel({
-      username,
+      firstName: dto.firstName,
+      email: dto.email,
       password: hashedPassword,
       role: roleToAssign,
     });
 
     await newUser.save();
     this.logger.log(
-      `🆕 Новый пользователь зарегистрирован: ${username}, Роль: ${roleToAssign}`,
+      `🆕 Новый пользователь зарегистрирован: ${dto.email}, Роль: ${roleToAssign}`,
     );
     return newUser;
   }
 
-  async login(username: string, password: string, rememberMe: boolean) {
-    const user = await this.userModel.findOne({ username }).exec();
+  async login(email: string, password: string, rememberMe: boolean) {
+    const user = await this.userModel.findOne({ email }).exec();
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      this.logger.warn(`⚠️ Неудачная попытка входа: ${username}`);
+      this.logger.warn(`⚠️ Неудачная попытка входа: ${email}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    this.logger.log(`✅ Успешный вход: ${username}`);
+    this.logger.log(`✅ Успешный вход: ${email}`);
     return this.generateTokens(user, rememberMe);
   }
 
@@ -75,7 +76,7 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      this.logger.log(`🔄 Обновление токена для ${user.username}`);
+      this.logger.log(`🔄 Обновление токена для ${user.email}`);
       return this.generateTokens(user);
     } catch (error) {
       this.logger.error(
@@ -98,7 +99,7 @@ export class AuthService {
 
     user.refreshToken = undefined;
     await user.save();
-    this.logger.log(`🚪 Пользователь ${user.username} вышел из системы`);
+    this.logger.log(`🚪 Пользователь ${user.email} вышел из системы`);
 
     return { message: 'User logged out successfully' };
   }
@@ -112,7 +113,7 @@ export class AuthService {
     rememberMe: boolean = false,
   ) {
     const payload = {
-      username: user.username,
+      username: user.email,
       sub: user.id.toString(),
       role: user.role,
     };
@@ -126,7 +127,7 @@ export class AuthService {
     user.refreshToken = encryptedRefreshToken;
     await user.save();
 
-    this.logger.log(`🎟️ Токены сгенерированы для ${user.username}`);
+    this.logger.log(`🎟️ Токены сгенерированы для ${user.email}`);
     return { access_token: accessToken, refresh_token: refreshToken };
   }
 

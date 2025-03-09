@@ -22,6 +22,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // ✅ Получение CSRF-токена
   @Get('csrf-token')
   @ApiOperation({ summary: 'Получить CSRF токен' })
   @ApiResponse({ status: 200, description: 'CSRF токен успешно получен' })
@@ -43,13 +44,18 @@ export class AuthController {
       .json({ message: 'CSRF middleware не настроен корректно' });
   }
 
+  // ✅ Регистрация пользователя
   @Post('register')
+  @ApiOperation({ summary: 'Регистрация нового пользователя' })
+  @ApiResponse({ status: 201, description: 'Пользователь зарегистрирован' })
+  @ApiResponse({ status: 400, description: 'Некорректные данные' })
   async register(@Body() body: AuthRegisterDto) {
-    return this.authService.register(body.username, body.password, body.role);
+    return this.authService.register(body);
   }
 
+  // ✅ Авторизация пользователя
   @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 60 } })
+  @Throttle({ default: { limit: 5, ttl: 60 } }) // Ограничение запросов
   @ApiOperation({ summary: 'Авторизация пользователя' })
   @ApiResponse({
     status: 201,
@@ -67,7 +73,7 @@ export class AuthController {
     description: 'Данные для входа',
     schema: {
       example: {
-        username: 'test@gmail.com',
+        email: 'test@gmail.com',
         password: 'password123',
         rememberMe: true,
       },
@@ -86,7 +92,7 @@ export class AuthController {
     }
 
     const { access_token, refresh_token } = await this.authService.login(
-      body.username,
+      body.email,
       body.password,
       body.rememberMe ?? false,
     );
@@ -101,6 +107,7 @@ export class AuthController {
     return res.send({ refresh_token });
   }
 
+  // ✅ Обновление токена
   @Post('refresh')
   @ApiOperation({ summary: 'Обновление токена' })
   @ApiResponse({ status: 201, description: 'Токен успешно обновлен' })
@@ -109,6 +116,7 @@ export class AuthController {
     return this.authService.refreshToken(body.refreshToken);
   }
 
+  // ✅ Выход пользователя
   @Post('logout')
   @ApiOperation({ summary: 'Выход пользователя' })
   @ApiResponse({ status: 201, description: 'Выход выполнен' })
@@ -117,6 +125,7 @@ export class AuthController {
     return res.send({ message: 'User logged out successfully' });
   }
 
+  // ✅ Выход со всех устройств
   @Post('logoutAll')
   @ApiOperation({ summary: 'Выход со всех устройств' })
   @ApiResponse({ status: 201, description: 'Выход со всех устройств выполнен' })
@@ -125,6 +134,7 @@ export class AuthController {
     return res.send({ message: 'Logged out from all devices' });
   }
 
+  // ✅ Проверка защищенного маршрута
   @Get('protected')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Тест защищенного маршрута' })
