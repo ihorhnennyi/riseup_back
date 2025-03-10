@@ -99,10 +99,16 @@ export class AuthController {
 
     res.cookie('accessToken', access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 1000,
+      secure: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 1000, // 1 час
     });
+
+    console.log('✅ Кука accessToken установлена:', access_token);
+    console.log('Cookies на сервере:', req.cookies);
+    console.log('Токен в куках:', req.cookies.accessToken);
+    console.log('Заголовки:', req.headers);
 
     return res.send({ refresh_token });
   }
@@ -144,5 +150,21 @@ export class AuthController {
       message: 'You have access to this protected route',
       user: req.user,
     };
+  }
+
+  @Get('session')
+  getSession(@Req() req: Request, @Res() res: Response) {
+    console.log('Cookies на сервере:', req.cookies);
+    console.log('🔑 Токен из Cookies:', req.cookies.accessToken);
+
+    const token =
+      req.cookies.accessToken || req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+      console.warn('⚠️ Нет accessToken (ни в cookies, ни в заголовке)');
+      return res.status(401).json({ isAuthenticated: false });
+    }
+
+    return res.json({ isAuthenticated: true });
   }
 }

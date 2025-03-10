@@ -15,7 +15,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: 'http://localhost:5173',
-    credentials: true,
+    credentials: true, // ✅ ОБЯЗАТЕЛЬНО, иначе куки не работают
     allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN'],
     exposedHeaders: ['X-XSRF-TOKEN'],
   });

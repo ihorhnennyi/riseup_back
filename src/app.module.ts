@@ -10,6 +10,8 @@ import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { BranchModule } from './branches/branch.module';
 import { CityModule } from './city/city.module';
+import { IntegrationModule } from './integration/integration.module';
+import { LeadModule } from './lead/lead.module';
 import { LoggerMiddleware } from './middleware/logger.middleware';
 import { StatusModule } from './status/status.module';
 import { UserModule } from './user/user.module';
@@ -30,9 +32,11 @@ import { UserModule } from './user/user.module';
         ttl: 60,
       },
     ]),
+    LeadModule,
     UserModule,
     CityModule,
     StatusModule,
+    IntegrationModule,
     BranchModule,
   ],
   providers: [
