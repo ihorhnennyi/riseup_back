@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -23,6 +24,9 @@ export class CreateUserDto {
   middleName?: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? new Date(value) : value,
+  )
   @IsDate()
   birthDate?: Date;
 
@@ -70,8 +74,8 @@ export class CreateUserDto {
   cities?: string[];
 
   @IsOptional()
-  @IsArray()
-  branches?: string[];
+  @IsString()
+  branch?: string;
 
   @IsOptional()
   @IsArray()

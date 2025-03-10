@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -47,6 +48,16 @@ export class UserController {
   @Put(':id')
   @Roles(UserRole.ADMIN)
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    if (
+      updateUserDto.birthDate &&
+      typeof updateUserDto.birthDate === 'string'
+    ) {
+      const parsedDate = new Date(updateUserDto.birthDate);
+      if (isNaN(parsedDate.getTime())) {
+        throw new BadRequestException('Некорректный формат даты');
+      }
+      updateUserDto.birthDate = parsedDate;
+    }
     return this.userService.update(id, updateUserDto);
   }
 

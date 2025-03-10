@@ -60,6 +60,9 @@ export class User {
   @Prop({ type: [{ type: Object }] })
   integrations: { type: string; login: string; password: string }[];
 
+  @Prop({ type: String, ref: 'Branch', required: false })
+  branch?: string;
+
   @Prop()
   refreshToken?: string;
 }
