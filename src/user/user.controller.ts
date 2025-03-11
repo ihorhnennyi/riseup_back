@@ -22,7 +22,6 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../enum/user-role.enum';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserService } from './user.service';
 
@@ -33,7 +32,7 @@ export class UserController {
 
   @Post()
   @UseInterceptors(
-    FileInterceptor('file', {
+    FileInterceptor('photo', {
       storage: diskStorage({
         destination: './uploads/users',
         filename: (req, file, cb) => {
@@ -54,20 +53,20 @@ export class UserController {
     }),
   )
   async createUser(
-    @Body() createUserDto: CreateUserDto,
+    @Body('userData') userData: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    const createUserDto = JSON.parse(userData); // ✅ Парсим JSON из `FormData`
+
+    console.log('📦 Данные после парсинга:', createUserDto);
+    console.log('📷 Загруженный файл:', file);
+
     if (file) {
       const webpFilename = `${uuidv4()}.webp`;
       const webpPath = `./uploads/users/${webpFilename}`;
 
-      // 🔹 Конвертация в WebP
       await sharp(file.path).toFormat('webp').toFile(webpPath);
-
-      // 🔹 Удаление оригинального файла
       await fs.unlink(file.path);
-
-      // 🔹 Сохраняем путь к WebP-файлу
       createUserDto.photo = `/uploads/users/${webpFilename}`;
     }
 
