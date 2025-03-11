@@ -12,8 +12,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { promises as fs } from 'fs';
 import { diskStorage } from 'multer';
 import * as path from 'path';
+import * as sharp from 'sharp';
+
 import { v4 as uuidv4 } from 'uuid';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -29,8 +32,45 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN)
-  create(@Body() createUserDto: CreateUserDto) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/users',
+        filename: (req, file, cb) => {
+          const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+          cb(null, uniqueName);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
+          return cb(
+            new BadRequestException('Файл должен быть JPG, PNG или JPEG'),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async createUser(
+    @Body() createUserDto: CreateUserDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (file) {
+      const webpFilename = `${uuidv4()}.webp`;
+      const webpPath = `./uploads/users/${webpFilename}`;
+
+      // 🔹 Конвертация в WebP
+      await sharp(file.path).toFormat('webp').toFile(webpPath);
+
+      // 🔹 Удаление оригинального файла
+      await fs.unlink(file.path);
+
+      // 🔹 Сохраняем путь к WebP-файлу
+      createUserDto.photo = `/uploads/users/${webpFilename}`;
+    }
+
     return this.userService.create(createUserDto);
   }
 
