@@ -1,6 +1,7 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as bodyParser from 'body-parser';
 import * as cookieParser from 'cookie-parser';
 import * as csurf from 'csurf';
 import * as express from 'express';
@@ -12,7 +13,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.use(cookieParser()); // Используем cookieParser
-
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   app.enableCors({
     origin: 'http://localhost:5173',
     credentials: true, // ✅ ОБЯЗАТЕЛЬНО, иначе куки не работают
