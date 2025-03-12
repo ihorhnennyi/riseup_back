@@ -4,20 +4,25 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as bodyParser from 'body-parser';
 import * as cookieParser from 'cookie-parser';
 import * as csurf from 'csurf';
+import * as dotenv from 'dotenv';
 import * as express from 'express';
 import { Request, Response } from 'express';
 import { join } from 'path';
 import { AppModule } from './app.module';
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  dotenv.config();
+
+  console.log('🔑 JWT_SECRET:', process.env.JWT_SECRET);
+  console.log('🔑 MONGO_URI:', process.env.MONGO_URI);
 
   app.use(cookieParser()); // Используем cookieParser
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   app.enableCors({
-    origin: 'http://localhost:5173',
-    credentials: true, // ✅ ОБЯЗАТЕЛЬНО, иначе куки не работают
+    origin: 'http://localhost:5173', // Укажите точный адрес фронта
+    credentials: true, // Позволяет передавать cookies
     allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN'],
     exposedHeaders: ['X-XSRF-TOKEN'],
   });

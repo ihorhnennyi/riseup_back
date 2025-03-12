@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import mongoose, { Document } from 'mongoose';
 import { UserRole } from '../../enum/user-role.enum';
 
 export type UserDocument = User & Document;
@@ -54,7 +54,7 @@ export class User {
   @Prop({ type: [{ type: String, ref: 'Branch' }] })
   branches: string[];
 
-  @Prop({ type: [{ type: String, ref: 'Lead' }] })
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Lead' }] })
   leads: string[];
 
   @Prop({ type: [{ type: Object }] })

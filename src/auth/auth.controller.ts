@@ -8,6 +8,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
@@ -20,7 +21,10 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   // ✅ Получение CSRF-токена
   @Get('csrf-token')
@@ -98,9 +102,9 @@ export class AuthController {
     );
 
     res.cookie('accessToken', access_token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
+      httpOnly: true, // ✅ Запрещает доступ к куке через JS
+      secure: process.env.NODE_ENV === 'production', // ✅ Включаем secure только в проде
+      sameSite: 'lax', // ✅ Разрешает отправку кук при навигации между сайтами
       path: '/',
       maxAge: 60 * 60 * 1000, // 1 час
     });
@@ -165,6 +169,34 @@ export class AuthController {
       return res.status(401).json({ isAuthenticated: false });
     }
 
-    return res.json({ isAuthenticated: true });
+    try {
+      const decoded = this.jwtService.verify(token, {
+        secret: process.env.JWT_SECRET,
+      });
+
+      console.log('📜 Расшифрованный JWT:', decoded);
+
+      return res.json({
+        isAuthenticated: true,
+        role: decoded.role, // ✅ Добавляем роль в ответ
+      });
+    } catch (err) {
+      console.error('❌ Ошибка верификации токена:', err);
+      return res.status(401).json({ isAuthenticated: false });
+    }
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard) // ✅ Только для авторизованных пользователей
+  async getProfile(@Req() req: Request) {
+    if (!req.user) {
+      throw new Error('Пользователь не найден в запросе');
+    }
+
+    return {
+      id: (req.user as any).id,
+      email: (req.user as any).email,
+      role: (req.user as any).role,
+    };
   }
 }

@@ -12,7 +12,6 @@ export class JwtAuthGuard implements CanActivate {
     const cookieToken = request.cookies?.accessToken;
 
     const allowedRoutes = ['/auth/login', '/auth/register', '/auth/refresh'];
-
     if (allowedRoutes.includes(request.url)) {
       return true;
     }
@@ -25,7 +24,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     if (!token) {
-      console.error('Нет токена в Authorization или Cookies');
+      console.error('❌ Нет токена в Authorization или Cookies');
       return false;
     }
 
@@ -41,12 +40,15 @@ export class JwtAuthGuard implements CanActivate {
       request.user = {
         id: decoded.sub,
         email: decoded.email,
-        role: decoded.role,
+        role: decoded.role || 'user',
       };
-      console.log('✅ JwtAuthGuard: ', request.user);
 
-      return true;
+      console.log('✅ JwtAuthGuard: Пользователь установлен:', request.user);
+      console.log('🔑 Проверяем токен:', token);
+
+      return true; // ✅ Теперь guard будет работать корректно
     } catch (err) {
+      console.error('❌ Ошибка верификации токена:', err);
       return false;
     }
   }

@@ -92,4 +92,13 @@ export class UserService {
     if (!user) throw new NotFoundException('Пользователь не найден');
     return user;
   }
+
+  async getRecruiterLeads(recruiterId: string) {
+    const recruiter = await this.userModel
+      .findById(recruiterId)
+      .populate('leads');
+    if (!recruiter) throw new NotFoundException('Рекрутер не найден');
+
+    return recruiter.leads; // ✅ Возвращаем список лидов
+  }
 }

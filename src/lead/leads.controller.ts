@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -29,8 +30,7 @@ export class LeadController {
   @Post()
   @UseInterceptors(
     FileInterceptor('photo', {
-      // ✅ Поле должно называться `photo`
-      storage: multer.memoryStorage(), // 📌 Используем память, а не диск
+      storage: multer.memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
@@ -41,14 +41,12 @@ export class LeadController {
     console.log('📦 Полученные данные:', leadData);
     console.log('📷 Загруженный файл:', file);
 
-    if (!file) {
-      console.error('❌ Ошибка: Файл не был загружен!');
-      throw new BadRequestException('Файл обязателен!');
-    }
-
     const createLeadDto: CreateLeadDto = JSON.parse(leadData);
 
-    // ✅ Преобразование statusId
+    if (!createLeadDto.recruiterId) {
+      throw new BadRequestException('Не указан рекрутер, создавший лида');
+    }
+
     if (
       createLeadDto.statusId &&
       Types.ObjectId.isValid(createLeadDto.statusId)
@@ -59,20 +57,25 @@ export class LeadController {
       throw new BadRequestException('Некорректный statusId');
     }
 
-    // 🛠 Конвертируем фото в WEBP
-    const webpFilename = `${uuidv4()}.webp`;
-    const webpPath = `./uploads/leads/${webpFilename}`;
+    if (file) {
+      const webpFilename = `${uuidv4()}.webp`;
+      const webpPath = `./uploads/leads/${webpFilename}`;
 
-    try {
-      await sharp(file.buffer).toFormat('webp').toFile(webpPath);
-
-      createLeadDto.photo = `/uploads/leads/${webpFilename}`;
-    } catch (err) {
-      console.error('❌ Ошибка обработки изображения:', err);
-      throw new BadRequestException('Ошибка обработки изображения');
+      try {
+        await sharp(file.buffer).toFormat('webp').toFile(webpPath);
+        createLeadDto.photo = `/uploads/leads/${webpFilename}`;
+      } catch (err) {
+        console.error('❌ Ошибка обработки изображения:', err);
+        throw new BadRequestException('Ошибка обработки изображения');
+      }
     }
 
     return this.leadService.create(createLeadDto);
+  }
+
+  @Get('by-recruiter/:recruiterId')
+  findLeadsByRecruiter(@Param('recruiterId') recruiterId: string) {
+    return this.leadService.findLeadsByRecruiter(recruiterId);
   }
 
   @Get()
@@ -118,5 +121,46 @@ export class LeadController {
 
     // 3️⃣ Удаляем саму запись из БД
     return this.leadService.remove(id);
+  }
+
+  @Put(':id')
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async updateLead(
+    @Param('id') id: string,
+    @Body('leadData') leadData: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    console.log('📦 Обновление лида:', leadData);
+    console.log('📷 Загруженный файл:', file);
+
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Неверный формат ID');
+    }
+
+    const updateLeadDto: Partial<CreateLeadDto> = JSON.parse(leadData);
+
+    if (updateLeadDto.statusId) {
+      updateLeadDto.statusId = new Types.ObjectId(updateLeadDto.statusId);
+    }
+
+    if (file) {
+      const webpFilename = `${uuidv4()}.webp`;
+      const webpPath = `./uploads/leads/${webpFilename}`;
+
+      try {
+        await sharp(file.buffer).toFormat('webp').toFile(webpPath);
+        updateLeadDto.photo = `/uploads/leads/${webpFilename}`;
+      } catch (err) {
+        console.error('❌ Ошибка обработки изображения:', err);
+        throw new BadRequestException('Ошибка обработки изображения');
+      }
+    }
+
+    return this.leadService.update(id, updateLeadDto);
   }
 }

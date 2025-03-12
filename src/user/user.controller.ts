@@ -134,4 +134,9 @@ export class UserController {
     const photoUrl = `/uploads/users/${file.filename}`;
     return this.userService.update(id, { photo: photoUrl });
   }
+
+  @Get(':id/leads')
+  async getRecruiterLeads(@Param('id') id: string) {
+    return this.userService.getRecruiterLeads(id);
+  }
 }

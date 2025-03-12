@@ -56,6 +56,9 @@ export class Lead {
 
   @Prop({ type: Date, required: false })
   statusEndDate?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  recruiterId: Types.ObjectId;
 }
 
 export const LeadSchema = SchemaFactory.createForClass(Lead);

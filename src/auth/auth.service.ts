@@ -113,10 +113,13 @@ export class AuthService {
     rememberMe: boolean = false,
   ) {
     const payload = {
-      username: user.email,
+      username: user.email, // ✅ Убедись, что передаётся email
       sub: user.id.toString(),
       role: user.role,
+      email: user.email, // ✅ Добавляем email, так как его нет в декодированном JWT
     };
+
+    console.log('📜 Payload перед подписью JWT:', payload); // ✅ Логируем данные
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, {
@@ -127,7 +130,6 @@ export class AuthService {
     user.refreshToken = encryptedRefreshToken;
     await user.save();
 
-    this.logger.log(`🎟️ Токены сгенерированы для ${user.email}`);
     return { access_token: accessToken, refresh_token: refreshToken };
   }
 
