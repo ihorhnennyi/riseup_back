@@ -1,11 +1,26 @@
-import { PartialType } from '@nestjs/mapped-types';
 import { Transform } from 'class-transformer';
-import { IsDate, IsOptional } from 'class-validator';
-import { CreateUserDto } from './create-user.dto';
+import { IsArray, IsOptional, IsString } from 'class-validator';
+import { Types } from 'mongoose';
+import { UserRole } from 'src/enum/user-role.enum';
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
+export class UpdateUserDto {
   @IsOptional()
-  @Transform(({ value }) => (value ? new Date(value) : undefined))
-  @IsDate()
-  birthDate?: Date;
+  @IsArray()
+  @Transform(({ value }) =>
+    Array.isArray(value) ? value.map((id) => new Types.ObjectId(id)) : [],
+  )
+  leads?: Types.ObjectId[];
+
+  @IsOptional()
+  role?: UserRole;
+
+  @IsOptional()
+  @IsString()
+  photo?: string;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value instanceof Types.ObjectId ? value.toString() : value,
+  )
+  branch?: string;
 }

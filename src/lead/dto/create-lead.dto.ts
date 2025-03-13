@@ -3,7 +3,6 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
-  IsNotEmpty,
   IsOptional,
   IsString,
 } from 'class-validator';
@@ -63,16 +62,14 @@ export class CreateLeadDto {
   @IsString()
   notes?: string;
 
-  // ✅ Приводим `statusId` к ObjectId
-  @IsOptional()
-  @Type(() => Types.ObjectId)
-  statusId?: Types.ObjectId;
-
   @IsOptional()
   @IsString()
   statusEndDate?: string;
 
-  @IsString()
-  @IsNotEmpty()
-  recruiterId: string;
+  @IsOptional()
+  recruiter?: Types.ObjectId;
+
+  @IsOptional()
+  @Type(() => Types.ObjectId)
+  statusId?: Types.ObjectId;
 }

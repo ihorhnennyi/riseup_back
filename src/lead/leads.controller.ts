@@ -43,21 +43,30 @@ export class LeadController {
 
     const createLeadDto: CreateLeadDto = JSON.parse(leadData);
 
-    if (!createLeadDto.recruiterId) {
-      throw new BadRequestException('Не указан рекрутер, создавший лида');
+    if (
+      !createLeadDto.recruiter ||
+      !Types.ObjectId.isValid(createLeadDto.recruiter)
+    ) {
+      throw new BadRequestException('Некорректный recruiterId');
     }
+    createLeadDto.recruiter = new Types.ObjectId(createLeadDto.recruiter);
 
     if (
-      createLeadDto.statusId &&
-      Types.ObjectId.isValid(createLeadDto.statusId)
+      !createLeadDto.statusId ||
+      (typeof createLeadDto.statusId === 'string' &&
+        (createLeadDto.statusId as string).trim().length === 0)
     ) {
+      delete createLeadDto.statusId; // Удаляем поле, если оно пустое
+    } else if (typeof createLeadDto.statusId === 'string') {
+      if (!Types.ObjectId.isValid(createLeadDto.statusId)) {
+        throw new BadRequestException('Некорректный statusId');
+      }
       createLeadDto.statusId = new Types.ObjectId(createLeadDto.statusId);
-    } else {
-      console.error('❌ Ошибка: Некорректный statusId', createLeadDto.statusId);
-      throw new BadRequestException('Некорректный statusId');
+    } else if (createLeadDto.statusId instanceof Types.ObjectId) {
+      // Если statusId уже является ObjectId, ничего не делаем
     }
 
-    if (file) {
+    if (file && file.buffer) {
       const webpFilename = `${uuidv4()}.webp`;
       const webpPath = `./uploads/leads/${webpFilename}`;
 
@@ -148,6 +157,19 @@ export class LeadController {
       updateLeadDto.statusId = new Types.ObjectId(updateLeadDto.statusId);
     }
 
+    const lead = await this.leadService.findOne(id);
+    if (!lead) throw new NotFoundException('Лид не найден');
+
+    // ✅ Удаляем старое фото, если оно есть
+    if (lead.photo && file) {
+      try {
+        await unlink(`.${lead.photo}`);
+        console.log(`🗑 Старое фото удалено: ${lead.photo}`);
+      } catch (err) {
+        console.warn(`⚠️ Ошибка при удалении старого фото: ${lead.photo}`);
+      }
+    }
+
     if (file) {
       const webpFilename = `${uuidv4()}.webp`;
       const webpPath = `./uploads/leads/${webpFilename}`;
@@ -156,7 +178,6 @@ export class LeadController {
         await sharp(file.buffer).toFormat('webp').toFile(webpPath);
         updateLeadDto.photo = `/uploads/leads/${webpFilename}`;
       } catch (err) {
-        console.error('❌ Ошибка обработки изображения:', err);
         throw new BadRequestException('Ошибка обработки изображения');
       }
     }

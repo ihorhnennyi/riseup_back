@@ -8,9 +8,12 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { UserRole } from '../../enum/user-role.enum';
+import { Types } from 'mongoose';
 
 export class CreateUserDto {
+  @IsOptional() // ✅ MongoDB сам создаст `_id`
+  _id?: string;
+
   @IsString()
   @IsNotEmpty()
   firstName: string;
@@ -59,7 +62,7 @@ export class CreateUserDto {
   photo?: string;
 
   @IsOptional()
-  role?: UserRole;
+  role?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -79,7 +82,10 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsArray()
-  leads?: string[];
+  @Transform(({ value }) =>
+    Array.isArray(value) ? value.map((id) => new Types.ObjectId(id)) : [],
+  )
+  leads?: Types.ObjectId[];
 
   @IsOptional()
   @IsArray()
