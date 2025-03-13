@@ -21,7 +21,7 @@ export class AuthService {
     const isFirstUser = (await this.userModel.countDocuments()) === 0;
     const roleToAssign = isFirstUser
       ? UserRole.ADMIN
-      : (dto.role ?? UserRole.USER);
+      : (dto.role ?? UserRole.RECRUITER);
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 

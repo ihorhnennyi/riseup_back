@@ -12,6 +12,10 @@ export class UpdateUserDto {
   leads?: Types.ObjectId[];
 
   @IsOptional()
+  @IsString()
+  password?: string;
+
+  @IsOptional()
   role?: UserRole;
 
   @IsOptional()

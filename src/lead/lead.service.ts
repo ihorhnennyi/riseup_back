@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import * as fs from 'fs/promises';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from 'src/auth/schemas/user.schema';
 import { CreateLeadDto } from './dto/create-lead.dto';
@@ -20,8 +21,6 @@ export class LeadService {
     console.log('📦 Полученные данные для создания лида:', createLeadDto);
 
     // ✅ Проверяем recruiterId
-    // Проверяем recruiterId
-    // Проверяем recruiter
     if (
       !createLeadDto.recruiter ||
       !Types.ObjectId.isValid(createLeadDto.recruiter)
@@ -29,10 +28,8 @@ export class LeadService {
       throw new BadRequestException('Некорректный recruiter');
     }
 
-    // ✅ Теперь просто приводим к ObjectId, если это строка
-    if (typeof createLeadDto.recruiter === 'string') {
-      createLeadDto.recruiter = new Types.ObjectId(createLeadDto.recruiter);
-    }
+    // ✅ Преобразуем recruiter в ObjectId, если это строка
+    createLeadDto.recruiter = new Types.ObjectId(createLeadDto.recruiter);
 
     // ✅ Проверяем, существует ли рекрутер перед сохранением лида
     const recruiter = await this.userModel.findById(createLeadDto.recruiter);
@@ -55,8 +52,14 @@ export class LeadService {
 
     console.log('📌 recruitId перед сохранением:', createLeadDto.recruiter);
 
-    // ✅ Создание нового лида
-    const newLead = new this.leadModel(createLeadDto);
+    // ✅ Генерируем ObjectId перед созданием лида
+    const newLead = new this.leadModel({
+      _id: new Types.ObjectId(), // ✅ Принудительно создаём ObjectId
+      ...createLeadDto,
+    });
+
+    console.log('✅ Создаваемый лид:', newLead);
+
     await newLead.save();
     console.log('✅ Лид успешно сохранен:', newLead);
 
@@ -83,8 +86,25 @@ export class LeadService {
   }
 
   async findOne(id: string): Promise<Lead> {
-    const lead = await this.leadModel.findById(id).populate('statusId').exec();
-    if (!lead) throw new NotFoundException('Лид не найден');
+    console.log(`🔍 Преобразуем ID: ${id} -> ObjectId`);
+
+    if (!Types.ObjectId.isValid(id)) {
+      console.error(`❌ Некорректный формат ID: ${id}`);
+      throw new BadRequestException('Неверный формат ID');
+    }
+
+    const objectId = new Types.ObjectId(id);
+    const lead = await this.leadModel
+      .findById(objectId)
+      .populate('statusId')
+      .exec();
+
+    if (!lead) {
+      console.error(`❌ Лид с ID ${id} не найден!`);
+      throw new NotFoundException('Лид не найден');
+    }
+
+    console.log(`✅ Лид найден:`, lead);
     return lead;
   }
 
@@ -92,20 +112,87 @@ export class LeadService {
     id: string,
     updateLeadDto: Partial<CreateLeadDto>,
   ): Promise<Lead> {
-    if (updateLeadDto.statusId) {
-      updateLeadDto.statusId = new Types.ObjectId(updateLeadDto.statusId);
+    console.log(`🔄 Обновление лида с ID: ${id}`);
+
+    if (!Types.ObjectId.isValid(id)) {
+      console.error(`❌ Ошибка: ID ${id} некорректен!`);
+      throw new BadRequestException('Неверный формат ID');
     }
 
+    const objectId = new Types.ObjectId(id);
+    console.log(`📌 Преобразованный ID: ${objectId}`);
+
     const updatedLead = await this.leadModel
-      .findByIdAndUpdate(id, updateLeadDto, { new: true })
+      .findByIdAndUpdate(objectId, updateLeadDto, { new: true })
       .exec();
-    if (!updatedLead) throw new NotFoundException('Лид не найден');
+
+    if (!updatedLead) {
+      console.error(`❌ Лид с ID ${id} не найден!`);
+      throw new NotFoundException('Лид не найден');
+    }
+
+    console.log(`✅ Лид обновлён:`, updatedLead);
     return updatedLead;
   }
 
   async remove(id: string): Promise<{ message: string }> {
-    const deletedLead = await this.leadModel.findByIdAndDelete(id).exec();
-    if (!deletedLead) throw new NotFoundException('Лид не найден');
+    console.log(`🗑 Запрос на удаление лида с ID: ${id}`);
+
+    // ✅ Проверяем валидность ObjectId
+    if (!Types.ObjectId.isValid(id)) {
+      console.error(`❌ Ошибка: Неверный формат ID ${id}`);
+      throw new BadRequestException('Неверный формат ID');
+    }
+
+    const objectId = new Types.ObjectId(id);
+
+    // ✅ Проверяем, существует ли лид
+    const lead = await this.leadModel.findById(objectId).exec();
+    if (!lead) {
+      console.error(`❌ Ошибка: Лид с ID ${id} не найден!`);
+      throw new NotFoundException('Лид не найден');
+    }
+
+    console.log(`✅ Лид найден:`, lead);
+
+    // ✅ Удаляем фото, если оно есть
+    if (lead.photo) {
+      const filePath = `.${lead.photo}`; // Пути хранятся как `/uploads/leads/...`
+      try {
+        await fs.unlink(filePath);
+        console.log(`🗑 Файл удалён: ${filePath}`);
+      } catch (err) {
+        console.warn(`⚠️ Файл не найден или уже удалён: ${filePath}`);
+      }
+    }
+
+    // ✅ Удаляем лид из массива `leads` у рекрутера
+    if (lead.recruiter) {
+      const recruiterUpdate = await this.userModel.findByIdAndUpdate(
+        lead.recruiter,
+        { $pull: { leads: lead._id } }, // Удаляем lead._id из массива leads у пользователя
+        { new: true },
+      );
+      if (recruiterUpdate) {
+        console.log(
+          `✅ Лид ${lead._id} удалён из списка рекрутера ${lead.recruiter}`,
+        );
+      } else {
+        console.warn(`⚠️ Рекрутер ${lead.recruiter} не найден или не обновлён`);
+      }
+    }
+
+    // ✅ Удаляем саму запись из базы данных
+    const deleteResult = await this.leadModel
+      .deleteOne({ _id: objectId })
+      .exec();
+    if (deleteResult.deletedCount === 0) {
+      console.error(`❌ Ошибка при удалении лида с ID: ${id}`);
+      throw new NotFoundException('Лид не найден');
+    }
+
+    console.log(`🗑 Лид ${id} успешно удалён`);
+
     return { message: 'Лид удалён' };
   }
 

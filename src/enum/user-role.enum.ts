@@ -1,5 +1,5 @@
 export enum UserRole {
-  USER = 'user',
+  // USER = 'user',
   ADMIN = 'admin',
   RECRUITER = 'recruiter', // 👈 Добавляем роль рекрутера
 }

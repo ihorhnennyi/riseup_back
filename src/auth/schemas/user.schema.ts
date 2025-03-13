@@ -42,7 +42,7 @@ export class User {
   @Prop({ required: false })
   photo?: string;
 
-  @Prop({ required: true, enum: UserRole, default: UserRole.USER })
+  @Prop({ required: true, enum: UserRole, default: UserRole.RECRUITER })
   role: UserRole;
 
   @Prop({ default: true })

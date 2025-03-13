@@ -86,6 +86,11 @@ export class UserService {
     const objectId = new Types.ObjectId(id);
     console.log('🔄 Преобразованный ObjectId:', objectId);
 
+    // 🛑 Удаляем поле `_id`, чтобы избежать ошибки обновления
+    if (updateUserDto._id) {
+      delete updateUserDto._id;
+    }
+
     const existingUser = await this.userModel.findById(objectId);
     if (!existingUser) {
       console.log('❌ Пользователь не найден в базе перед обновлением');
@@ -95,7 +100,13 @@ export class UserService {
     console.log('✅ Найденный пользователь перед обновлением:', existingUser);
     console.log('📥 Данные для обновления:', updateUserDto);
 
-    // 🛠 Добавляем `lean(false)` и `exec()`
+    // ✅ Проверяем, передан ли новый пароль, и хешируем его
+    if (updateUserDto.password) {
+      console.log('🔑 Хешируем новый пароль...');
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
+
+    // 🛠 Обновляем пользователя
     const user = await this.userModel
       .findByIdAndUpdate(objectId, updateUserDto, { new: true })
       .populate('leads')
@@ -112,8 +123,47 @@ export class UserService {
   }
 
   async remove(id: string): Promise<{ message: string }> {
-    const deletedUser = await this.userModel.findByIdAndDelete(id).exec();
-    if (!deletedUser) throw new NotFoundException('Пользователь не найден');
+    console.log(`🔍 Попытка удалить пользователя с ID: ${id}`);
+
+    // Проверяем, является ли ID корректным ObjectId
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('❌ Некорректный ID пользователя');
+    }
+
+    const objectId = new Types.ObjectId(id);
+    console.log(`✅ Преобразованный ObjectId: ${objectId}`);
+
+    // Проверяем, существует ли пользователь перед удалением
+    const user = await this.userModel.findById(objectId);
+    if (!user) {
+      console.log(`❌ Пользователь с ID ${id} не найден`);
+      throw new NotFoundException('❌ Пользователь не найден');
+    }
+
+    // Назначаем всех лидов этого рекрутера админу
+    const admin = await this.userModel.findOne({ role: UserRole.ADMIN });
+    if (!admin) {
+      console.log(`❌ Администратор не найден!`);
+      throw new NotFoundException('❌ Администратор не найден');
+    }
+
+    console.log(`🔄 Перенос лидов от рекрутера ${id} к админу ${admin._id}`);
+
+    await this.leadModel.updateMany(
+      { recruiter: objectId }, // Находим лидов рекрутера
+      { recruiter: admin._id }, // Присваиваем админа
+    );
+
+    console.log(`✅ Лиды успешно перенесены к админу ${admin._id}`);
+
+    // Удаляем пользователя
+    const deletedUser = await this.userModel.findByIdAndDelete(objectId);
+    if (!deletedUser) {
+      console.log(`❌ Ошибка при удалении пользователя с ID: ${id}`);
+      throw new NotFoundException('❌ Ошибка при удалении пользователя');
+    }
+
+    console.log(`✅ Пользователь ${id} успешно удален`);
     return { message: 'Пользователь удален' };
   }
 

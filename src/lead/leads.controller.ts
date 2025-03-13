@@ -94,15 +94,20 @@ export class LeadController {
 
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    // Проверка на валидность ObjectId
+    console.log(`🔍 Получен запрос на получение лида с ID: ${id}`);
+
     if (!Types.ObjectId.isValid(id)) {
+      console.error(`❌ Неверный формат ID: ${id}`);
       throw new BadRequestException('Неверный формат ID');
     }
 
-    const lead = await this.leadService.findOne(id); // Теперь id можно безопасно передавать
+    const lead = await this.leadService.findOne(id);
     if (!lead) {
+      console.error(`❌ Лид с ID ${id} не найден!`);
       throw new NotFoundException('Лид не найден');
     }
+
+    console.log(`✅ Найден лид:`, lead);
     return lead;
   }
 
