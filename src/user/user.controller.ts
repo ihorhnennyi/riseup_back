@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Post,
   Put,
@@ -13,10 +14,10 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { promises as fs } from 'fs';
+import { Types } from 'mongoose';
 import { diskStorage } from 'multer';
 import * as path from 'path';
 import * as sharp from 'sharp';
-
 import { v4 as uuidv4 } from 'uuid';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -54,23 +55,48 @@ export class UserController {
   )
   async createUser(
     @Body('userData') userData: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    const createUserDto = JSON.parse(userData); // ✅ Парсим JSON из `FormData`
-
-    console.log('📦 Данные после парсинга:', createUserDto);
-    console.log('📷 Загруженный файл:', file);
+    let createUserDto;
+    try {
+      createUserDto = JSON.parse(userData);
+    } catch {
+      throw new BadRequestException('Ошибка парсинга JSON');
+    }
 
     if (file) {
-      const webpFilename = `${uuidv4()}.webp`;
-      const webpPath = `./uploads/users/${webpFilename}`;
+      try {
+        const webpFilename = `${uuidv4()}.webp`;
+        const webpPath = `./uploads/users/${webpFilename}`;
 
-      await sharp(file.path).toFormat('webp').toFile(webpPath);
-      await fs.unlink(file.path);
-      createUserDto.photo = `/uploads/users/${webpFilename}`;
+        await sharp(file.path).toFormat('webp').toFile(webpPath);
+        await fs.unlink(file.path);
+        createUserDto.photo = `/uploads/users/${webpFilename}`;
+      } catch {
+        throw new BadRequestException('Ошибка обработки изображения');
+      }
+    }
+
+    if (Array.isArray(createUserDto.leads)) {
+      createUserDto.leads = createUserDto.leads.map(
+        (leadId) => new Types.ObjectId(leadId),
+      );
     }
 
     return this.userService.create(createUserDto);
+  }
+
+  @Get(':id/leads')
+  async getUserLeads(@Param('id') id: string) {
+    console.log(`🔍 Получение лидов пользователя с ID: ${id}`);
+    return this.userService.getUserLeads(id);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const user = await this.userService.findOne(id);
+    if (!user) throw new NotFoundException(`Пользователь с ID ${id} не найден`);
+    return user;
   }
 
   @Get()
@@ -79,64 +105,56 @@ export class UserController {
     return this.userService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(id);
-  }
-
   @Put(':id')
-  @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    if (
-      updateUserDto.birthDate &&
-      typeof updateUserDto.birthDate === 'string'
-    ) {
-      const parsedDate = new Date(updateUserDto.birthDate);
-      if (isNaN(parsedDate.getTime())) {
-        throw new BadRequestException('Некорректный формат даты');
-      }
-      updateUserDto.birthDate = parsedDate;
+  @UseInterceptors(FileInterceptor('file'))
+  async update(
+    @Param('id') id: string,
+    @Body('userData') userData: string | UpdateUserDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    console.log('📥 Полученные данные (userData):', userData);
+
+    if (!userData) {
+      throw new BadRequestException('❌ userData не передан в запросе');
     }
+
+    let updateUserDto: UpdateUserDto;
+    try {
+      updateUserDto =
+        typeof userData === 'string' ? JSON.parse(userData) : userData;
+    } catch (error) {
+      throw new BadRequestException('Ошибка парсинга JSON');
+    }
+
+    if (updateUserDto.branch && Types.ObjectId.isValid(updateUserDto.branch)) {
+      updateUserDto.branch = updateUserDto.branch.toString();
+    }
+
+    if (updateUserDto.leads) {
+      updateUserDto.leads = updateUserDto.leads.map((lead) =>
+        typeof lead === 'string' ? new Types.ObjectId(lead) : lead,
+      );
+    }
+
+    if (file) {
+      try {
+        const webpFilename = `${uuidv4()}.webp`;
+        const webpPath = `./uploads/users/${webpFilename}`;
+
+        await sharp(file.path).toFormat('webp').toFile(webpPath);
+        await fs.unlink(file.path);
+        updateUserDto.photo = `/uploads/users/${webpFilename}`;
+      } catch (err) {
+        throw new BadRequestException('Ошибка обработки изображения');
+      }
+    }
+
     return this.userService.update(id, updateUserDto);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string) {
     return this.userService.remove(id);
-  }
-
-  // ✅ Загрузка фото
-  @Post(':id/upload-photo')
-  @Roles(UserRole.ADMIN, UserRole.USER)
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/users',
-        filename: (req, file, cb) => {
-          const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
-          cb(null, uniqueName);
-        },
-      }),
-      fileFilter: (req, file, cb) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-          return cb(new Error('Файл должен быть JPG или PNG'), false);
-        }
-        cb(null, true);
-      },
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
-  )
-  async uploadPhoto(
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    const photoUrl = `/uploads/users/${file.filename}`;
-    return this.userService.update(id, { photo: photoUrl });
-  }
-
-  @Get(':id/leads')
-  async getRecruiterLeads(@Param('id') id: string) {
-    return this.userService.getRecruiterLeads(id);
   }
 }

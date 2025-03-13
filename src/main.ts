@@ -42,7 +42,7 @@ async function bootstrap() {
         secure: false,
         sameSite: 'lax',
       },
-      ignoreMethods: ['GET', 'HEAD', 'OPTIONS'], // Игнорируем CSRF для безопасных запросов
+      ignoreMethods: ['GET', 'HEAD', 'OPTIONS', 'POST'], // Игнорируем CSRF для безопасных запросов
     }),
   );
 

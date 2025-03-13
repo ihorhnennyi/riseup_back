@@ -17,7 +17,7 @@ import { User, UserSchema } from './schemas/user.schema';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         const secret = configService.get<string>('JWT_SECRET');
-        console.log('🔑 JWT_SECRET из ConfigService:', secret); // ✅ Выводим ключ в консоль
+        console.log('🔑 JWT_SECRET из ConfigService:', secret); // ✅ Отладочный лог
         return {
           secret,
           signOptions: { expiresIn: '1h' },

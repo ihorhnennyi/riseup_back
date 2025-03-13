@@ -5,6 +5,9 @@ export type LeadDocument = Lead & Document;
 
 @Schema({ timestamps: true })
 export class Lead {
+  @Prop({ type: Types.ObjectId })
+  _id: Types.ObjectId;
+
   @Prop({ required: true })
   name: string;
 
@@ -58,7 +61,7 @@ export class Lead {
   statusEndDate?: Date;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  recruiterId: Types.ObjectId;
+  recruiter: Types.ObjectId;
 }
 
 export const LeadSchema = SchemaFactory.createForClass(Lead);

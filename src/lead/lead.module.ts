@@ -1,18 +1,20 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuthModule } from '../auth/auth.module'; // ✅ Добавляем AuthModule
+import { AuthModule } from '../auth/auth.module';
 import { User, UserSchema } from '../auth/schemas/user.schema';
-import { UserModule } from '../user/user.module'; // ✅ Импортируем модуль пользователей
+import { UserModule } from '../user/user.module';
 import { LeadService } from './lead.service';
 import { LeadController } from './leads.controller';
-import { Lead, LeadSchema } from './schemas/lead.schema';
+import { LeadSchema } from './schemas/lead.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Lead.name, schema: LeadSchema }]),
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: 'Lead', schema: LeadSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
     AuthModule, // ✅ Импортируем AuthModule, где находится JwtAuthGuard
-    UserModule,
+    UserModule, // ✅ Добавляем UserModule, чтобы работало populate('recruiter')
   ],
   controllers: [LeadController],
   providers: [LeadService],

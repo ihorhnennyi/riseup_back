@@ -24,8 +24,9 @@ import { UserModule } from './user/user.module';
     AdminModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '1h' },
+      signOptions: { expiresIn: '10d' },
     }),
+
     ThrottlerModule.forRoot([
       {
         limit: 5,

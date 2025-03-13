@@ -1,11 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { UserRole } from '../../enum/user-role.enum';
 
 export type UserDocument = User & Document;
 
 @Schema()
 export class User {
+  @Prop({ type: Types.ObjectId, auto: true }) // ✅ Теперь MongoDB сам создает _id
+  _id?: Types.ObjectId;
+
   @Prop({ required: true })
   firstName: string;
 
@@ -54,9 +57,6 @@ export class User {
   @Prop({ type: [{ type: String, ref: 'Branch' }] })
   branches: string[];
 
-  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Lead' }] })
-  leads: string[];
-
   @Prop({ type: [{ type: Object }] })
   integrations: { type: string; login: string; password: string }[];
 
@@ -65,6 +65,9 @@ export class User {
 
   @Prop()
   refreshToken?: string;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Lead' }] })
+  leads: Types.ObjectId[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
