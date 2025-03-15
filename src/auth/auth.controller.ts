@@ -41,8 +41,16 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 1000,
+      maxAge: 24 * 60 * 60 * 1000,
     });
+
+    // res.cookie('accessToken', access_token, {
+    //   httpOnly: true,
+    //   secure: false, // ✅ Должно быть true, т.к. HTTPS
+    //   sameSite: 'none', // ✅ Чтобы работало с другим доменом
+    //   path: '/',
+    //   maxAge: 24 * 60 * 60 * 1000, // 1 час
+    // });
 
     return res.send({ refresh_token });
   }

@@ -17,15 +17,22 @@ async function bootstrap() {
   console.log('🔑 JWT_SECRET:', process.env.JWT_SECRET);
   console.log('🔑 MONGO_URI:', process.env.MONGO_URI);
 
-  app.use(cookieParser()); // Используем cookieParser
+  app.use(cookieParser());
   app.use(bodyParser.json({ limit: '50mb' }));
   app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   app.enableCors({
-    origin: 'http://localhost:5173', // Укажите точный адрес фронта
-    credentials: true, // Позволяет передавать cookies
+    origin: 'http://localhost:5173',
+    credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN'],
     exposedHeaders: ['X-XSRF-TOKEN'],
   });
+
+  // app.enableCors({
+  //   origin: 'https://workriseup.website', // Явно указываем фронтовый домен
+  //   credentials: true, // Позволяет передавать куки
+  //   allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN'],
+  //   exposedHeaders: ['X-XSRF-TOKEN'], // Позволяет фронту получать CSRF-токен
+  // });
 
   // Логируем куки для отладки
   app.use((req: Request, res: Response, next) => {
@@ -42,7 +49,7 @@ async function bootstrap() {
         secure: false,
         sameSite: 'lax',
       },
-      ignoreMethods: ['GET', 'HEAD', 'OPTIONS', 'POST'], // Игнорируем CSRF для безопасных запросов
+      ignoreMethods: ['GET', 'HEAD', 'OPTIONS', 'POST', 'DELETE', 'PUT'], // Игнорируем CSRF для безопасных запросов
     }),
   );
 
