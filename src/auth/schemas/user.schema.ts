@@ -57,8 +57,8 @@ export class User {
   @Prop({ type: [{ type: String, ref: 'Branch' }] })
   branches: string[];
 
-  @Prop({ type: [{ type: Object }] })
-  integrations: { type: string; login: string; password: string }[];
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Integration' }] }) // 🔹 ref должен быть 'Integration'
+  integrations: Types.ObjectId[];
 
   @Prop({ type: String, ref: 'Branch', required: false })
   branch?: string;

@@ -8,12 +8,12 @@ export class AuthRegisterDto {
   firstName: string;
 
   @ApiProperty({ example: 'Тестов', description: 'Фамилия пользователя' })
-  @IsOptional() // ✅ Теперь фамилия не обязательна
+  @IsOptional()
   @IsString()
   lastName?: string;
 
   @ApiProperty({ example: '+1234567890', description: 'Телефон' })
-  @IsOptional() // ✅ Теперь телефон не обязателен
+  @IsOptional()
   @IsString()
   phone?: string;
 
@@ -30,6 +30,12 @@ export class AuthRegisterDto {
   @IsNotEmpty()
   password: string;
 
-  @ApiProperty({ example: 'admin', description: 'Роль пользователя' })
-  role?: string;
+  @ApiProperty({
+    example: 'recruiter',
+    description: 'Роль пользователя',
+    default: 'recruiter',
+  })
+  @IsOptional()
+  @IsString()
+  role?: string = 'recruiter'; // 🔹 Добавлен `default`
 }

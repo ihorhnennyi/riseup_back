@@ -13,8 +13,8 @@ import { LeadSchema } from './schemas/lead.schema';
       { name: 'Lead', schema: LeadSchema },
       { name: User.name, schema: UserSchema },
     ]),
-    AuthModule, // ✅ Импортируем AuthModule, где находится JwtAuthGuard
-    UserModule, // ✅ Добавляем UserModule, чтобы работало populate('recruiter')
+    AuthModule, // ✅ Импортируем, чтобы использовать `JwtAuthGuard`
+    UserModule, // ✅ Используем `populate('recruiter')`
   ],
   controllers: [LeadController],
   providers: [LeadService],

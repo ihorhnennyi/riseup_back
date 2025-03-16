@@ -8,7 +8,7 @@ import { Branch, BranchSchema } from './schemas/branch.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Branch.name, schema: BranchSchema }]),
-    AuthModule,
+    AuthModule, // ✅ Импортируем `AuthModule`, чтобы использовать JWT
   ],
   controllers: [BranchController],
   providers: [BranchService],

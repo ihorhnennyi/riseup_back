@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AuthModule } from '../auth/auth.module'; // ✅ Добавь импорт
+import { AuthModule } from '../auth/auth.module';
 import { IntegrationController } from './integration.controller';
 import { IntegrationService } from './integration.service';
 import { Integration, IntegrationSchema } from './schema/integration.schema';
@@ -10,7 +10,7 @@ import { Integration, IntegrationSchema } from './schema/integration.schema';
     MongooseModule.forFeature([
       { name: Integration.name, schema: IntegrationSchema },
     ]),
-    AuthModule, // ✅ Добавь AuthModule
+    AuthModule, // ✅ Импортируем `AuthModule`, убираем `JwtModule.register({...})`
   ],
   controllers: [IntegrationController],
   providers: [IntegrationService],

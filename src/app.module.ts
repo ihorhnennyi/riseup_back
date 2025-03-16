@@ -1,9 +1,10 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
@@ -22,17 +23,27 @@ import { UserModule } from './user/user.module';
     MongooseModule.forRoot(process.env.MONGO_URI as string),
     AuthModule,
     AdminModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '10d' },
+
+    // ✅ Корректный способ регистрации JWT
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '10d' },
+      }),
     }),
 
-    ThrottlerModule.forRoot([
-      {
-        limit: 5,
-        ttl: 60,
-      },
-    ]),
+    // ✅ Исправленный ThrottlerModule
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60000, // ✅ Время в **миллисекундах** (60 сек)
+          limit: 30, // ✅ Количество запросов за `ttl`
+        },
+      ],
+    }),
+
     LeadModule,
     UserModule,
     CityModule,

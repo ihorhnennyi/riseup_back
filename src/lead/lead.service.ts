@@ -4,10 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import * as fs from 'fs/promises';
 import { Model, Types } from 'mongoose';
 import { User, UserDocument } from 'src/auth/schemas/user.schema';
 import { CreateLeadDto } from './dto/create-lead.dto';
+import { UpdateLeadDto } from './dto/update-lead.dto';
 import { Lead, LeadDocument } from './schemas/lead.schema';
 
 @Injectable()
@@ -17,10 +17,13 @@ export class LeadService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
+  /**
+   * 📌 Создание нового лида
+   */
   async create(createLeadDto: CreateLeadDto): Promise<Lead> {
-    console.log('📦 Полученные данные для создания лида:', createLeadDto);
+    console.log('📦 Создание лида:', createLeadDto);
 
-    // ✅ Проверяем recruiterId
+    // Проверяем recruiterId (рекрутер, который создаёт лида)
     if (
       !createLeadDto.recruiter ||
       !Types.ObjectId.isValid(createLeadDto.recruiter)
@@ -28,195 +31,205 @@ export class LeadService {
       throw new BadRequestException('Некорректный recruiter');
     }
 
-    // ✅ Преобразуем recruiter в ObjectId, если это строка
-    createLeadDto.recruiter = new Types.ObjectId(createLeadDto.recruiter);
-
-    // ✅ Проверяем, существует ли рекрутер перед сохранением лида
-    const recruiter = await this.userModel.findById(createLeadDto.recruiter);
-    if (!recruiter) {
-      console.error(
-        `❌ Ошибка: Рекрутер с ID ${createLeadDto.recruiter} не найден`,
-      );
-      throw new NotFoundException(
-        `Рекрутер с ID ${createLeadDto.recruiter} не найден`,
-      );
-    }
-
-    // ✅ Проверяем statusId, если передан
+    // Проверяем statusId, если передан
     if (createLeadDto.statusId) {
-      if (!Types.ObjectId.isValid(createLeadDto.statusId)) {
+      if (!Types.ObjectId.isValid(String(createLeadDto.statusId))) {
         throw new BadRequestException('Некорректный statusId');
       }
-      createLeadDto.statusId = new Types.ObjectId(createLeadDto.statusId);
+      (createLeadDto as any).statusId = new Types.ObjectId(
+        createLeadDto.statusId,
+      );
     }
 
-    console.log('📌 recruitId перед сохранением:', createLeadDto.recruiter);
+    // Преобразуем recruiter в ObjectId
+    const recruiterId = new Types.ObjectId(createLeadDto.recruiter);
 
-    // ✅ Генерируем ObjectId перед созданием лида
+    // Создаём нового лида
     const newLead = new this.leadModel({
-      _id: new Types.ObjectId(), // ✅ Принудительно создаём ObjectId
+      _id: new Types.ObjectId(), // Генерируем новый ObjectId
       ...createLeadDto,
+      recruiter: recruiterId,
     });
 
-    console.log('✅ Создаваемый лид:', newLead);
+    const existingLead = await this.leadModel
+      .findOne({ phone: createLeadDto.phone })
+      .exec();
+    if (existingLead) {
+      throw new BadRequestException(
+        `Лид с таким телефоном уже существует: ${createLeadDto.phone}`,
+      );
+    }
 
+    // Сохраняем лида в БД
     await newLead.save();
-    console.log('✅ Лид успешно сохранен:', newLead);
+    console.log('✅ Лид успешно создан:', newLead);
 
     console.log(
-      `📌 Добавление лида ${newLead._id} пользователю ${createLeadDto.recruiter}`,
-    );
-
-    // ✅ Добавляем лида в массив leads рекрутера (используем $addToSet, чтобы избежать дубликатов)
-    await this.userModel.findByIdAndUpdate(
+      '🔍 Проверяем существование поля leads у рекрутера:',
       createLeadDto.recruiter,
-      { $addToSet: { leads: newLead._id } }, // ✅ Добавляем лида в массив leads у рекрутера
-      { new: true },
     );
 
-    console.log(
-      `✅ Лид ${newLead._id} добавлен пользователю ${createLeadDto.recruiter}`,
-    );
+    // Проверяем, есть ли уже поле `leads` у рекрутера
+    const recruiter = await this.userModel.findById(recruiterId).exec();
+
+    if (!recruiter) {
+      throw new NotFoundException('Рекрутер не найден');
+    }
+
+    if (!Array.isArray(recruiter.leads)) {
+      console.log('⚠️ Поле leads отсутствует, создаем его...');
+      await this.userModel.updateOne(
+        { _id: recruiterId },
+        { $set: { leads: [] } },
+      );
+    }
+
+    console.log('📌 Добавляем лид в массив рекрутера:', newLead._id);
+
+    // Добавляем лида в массив рекрутера (избегая дубликатов)
+    const result = await this.userModel
+      .findByIdAndUpdate(
+        recruiterId,
+        { $addToSet: { leads: newLead._id } },
+        { new: true },
+      )
+      .populate('leads')
+      .exec();
+
+    console.log('✅ Рекрутер после обновления:', result);
 
     return newLead;
   }
 
+  /**
+   * 📌 Получение всех лидов
+   */
   async findAll(): Promise<Lead[]> {
+    console.log('🔍 Запрос на получение всех лидов');
     return this.leadModel.find().populate('statusId').exec();
   }
 
+  /**
+   * 📌 Получение лида по ID
+   */
   async findOne(id: string): Promise<Lead> {
-    console.log(`🔍 Преобразуем ID: ${id} -> ObjectId`);
+    console.log(`🔍 Ищем лида в базе данных по ID: ${id}`);
 
     if (!Types.ObjectId.isValid(id)) {
-      console.error(`❌ Некорректный формат ID: ${id}`);
       throw new BadRequestException('Неверный формат ID');
     }
 
     const objectId = new Types.ObjectId(id);
+
     const lead = await this.leadModel
       .findById(objectId)
       .populate('statusId')
+      .populate('recruiter', 'firstName lastName email') // ✅ Загружаем рекрутёра
       .exec();
 
+    console.log(`🔍 Результат поиска:`, lead);
+
     if (!lead) {
-      console.error(`❌ Лид с ID ${id} не найден!`);
       throw new NotFoundException('Лид не найден');
     }
-
-    console.log(`✅ Лид найден:`, lead);
     return lead;
   }
 
-  async update(
-    id: string,
-    updateLeadDto: Partial<CreateLeadDto>,
-  ): Promise<Lead> {
-    console.log(`🔄 Обновление лида с ID: ${id}`);
+  /**
+   * 📌 Обновление лида
+   */
+  async update(id: string, updateLeadDto: UpdateLeadDto): Promise<Lead> {
+    console.log(`🔄 Обновление лида с ID: ${id}`, updateLeadDto);
 
+    // Проверяем корректность ID
     if (!Types.ObjectId.isValid(id)) {
-      console.error(`❌ Ошибка: ID ${id} некорректен!`);
       throw new BadRequestException('Неверный формат ID');
     }
 
     const objectId = new Types.ObjectId(id);
-    console.log(`📌 Преобразованный ID: ${objectId}`);
 
+    // Создаём новый объект без _id
+    const updateData = { ...updateLeadDto };
+    delete (updateData as any)._id; // Удаляем _id, если он вдруг передан
+
+    // Преобразуем statusId, если передан
+    if (updateData.statusId) {
+      if (!Types.ObjectId.isValid(updateData.statusId)) {
+        throw new BadRequestException('Некорректный statusId');
+      }
+      updateData.statusId = new Types.ObjectId(updateData.statusId) as any; // ✅ Добавили `as any`
+    }
+
+    // Преобразуем recruiter, если передан
+    if (updateData.recruiter) {
+      if (!Types.ObjectId.isValid(updateData.recruiter)) {
+        throw new BadRequestException('Некорректный recruiter');
+      }
+      updateData.recruiter = new Types.ObjectId(updateData.recruiter) as any; // ✅ Добавили `as any`
+    }
+
+    // Выполняем обновление
     const updatedLead = await this.leadModel
-      .findByIdAndUpdate(objectId, updateLeadDto, { new: true })
+      .findByIdAndUpdate(objectId, { $set: updateData }, { new: true })
+      .populate('recruiter') // ✅ Теперь должен подтягиваться рекрутер
       .exec();
 
     if (!updatedLead) {
-      console.error(`❌ Лид с ID ${id} не найден!`);
+      console.error(`❌ Ошибка: Лид с ID ${id} не найден`);
       throw new NotFoundException('Лид не найден');
     }
 
-    console.log(`✅ Лид обновлён:`, updatedLead);
+    console.log('✅ Лид успешно обновлён:', updatedLead);
     return updatedLead;
   }
 
+  /**
+   * 📌 Удаление лида
+   */
   async remove(id: string): Promise<{ message: string }> {
     console.log(`🗑 Запрос на удаление лида с ID: ${id}`);
 
-    // ✅ Проверяем валидность ObjectId
+    // Проверяем корректность ID
     if (!Types.ObjectId.isValid(id)) {
-      console.error(`❌ Ошибка: Неверный формат ID ${id}`);
+      console.error(`❌ Ошибка: Неверный формат ID - ${id}`);
       throw new BadRequestException('Неверный формат ID');
     }
 
     const objectId = new Types.ObjectId(id);
 
-    // ✅ Проверяем, существует ли лид
-    const lead = await this.leadModel.findById(objectId).exec();
+    // 🔍 Находим лида перед удалением, чтобы узнать его рекрутера
+    const lead = await this.leadModel.findById(objectId);
     if (!lead) {
-      console.error(`❌ Ошибка: Лид с ID ${id} не найден!`);
+      console.error(`❌ Ошибка: Лид с ID ${id} не найден`);
       throw new NotFoundException('Лид не найден');
     }
 
-    console.log(`✅ Лид найден:`, lead);
+    console.log(`🔍 Найден кандидат:`, lead);
 
-    // ✅ Удаляем фото, если оно есть
-    if (lead.photo) {
-      const filePath = `.${lead.photo}`; // Пути хранятся как `/uploads/leads/...`
-      try {
-        await fs.unlink(filePath);
-        console.log(`🗑 Файл удалён: ${filePath}`);
-      } catch (err) {
-        console.warn(`⚠️ Файл не найден или уже удалён: ${filePath}`);
-      }
-    }
-
-    // ✅ Удаляем лид из массива `leads` у рекрутера
-    if (lead.recruiter) {
-      const recruiterUpdate = await this.userModel.findByIdAndUpdate(
-        lead.recruiter,
-        { $pull: { leads: lead._id } }, // Удаляем lead._id из массива leads у пользователя
-        { new: true },
-      );
-      if (recruiterUpdate) {
-        console.log(
-          `✅ Лид ${lead._id} удалён из списка рекрутера ${lead.recruiter}`,
-        );
-      } else {
-        console.warn(`⚠️ Рекрутер ${lead.recruiter} не найден или не обновлён`);
-      }
-    }
-
-    // ✅ Удаляем саму запись из базы данных
+    // 🗑 Удаляем лида
     const deleteResult = await this.leadModel
       .deleteOne({ _id: objectId })
       .exec();
     if (deleteResult.deletedCount === 0) {
-      console.error(`❌ Ошибка при удалении лида с ID: ${id}`);
+      console.error(`❌ Ошибка: Лид с ID ${id} не найден`);
       throw new NotFoundException('Лид не найден');
     }
 
-    console.log(`🗑 Лид ${id} успешно удалён`);
+    console.log(`✅ Лид с ID ${id} успешно удалён`);
+
+    // 🔄 Обновляем рекрутера (удаляем лид из массива leads)
+    console.log(
+      `🔄 Удаляем ID ${id} из массива leads рекрутера ${lead.recruiter}`,
+    );
+
+    await this.userModel.findByIdAndUpdate(
+      lead.recruiter,
+      { $pull: { leads: objectId } }, // ❌ Удаляем ID лида из массива leads
+      { new: true },
+    );
+
+    console.log(`✅ Лид удалён из массива рекрутера`);
 
     return { message: 'Лид удалён' };
-  }
-
-  async findLeadsByRecruiter(recruiterId: string): Promise<Lead[]> {
-    console.log(`🔍 Проверка рекрутера с ID: ${recruiterId}`);
-
-    if (!Types.ObjectId.isValid(recruiterId)) {
-      throw new BadRequestException('Некорректный ID рекрутера');
-    }
-
-    // Ищем лидов по recruiter (он же User)
-    const leads = await this.leadModel
-      .find({ recruiter: recruiterId }) // 🎯 ищем по recruiter
-      .populate('statusId') // ✅ Подгружаем статус
-      .populate('recruiter', 'firstName lastName email') // ✅ Подгружаем данные о рекрутере
-      .exec();
-
-    if (!leads || leads.length === 0) {
-      console.warn(`⚠️ У рекрутера ${recruiterId} нет лидов.`);
-      return [];
-    }
-
-    console.log(`✅ Найденные лиды:`, leads);
-
-    return leads;
   }
 }

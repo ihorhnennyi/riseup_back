@@ -8,22 +8,26 @@ import {
   IsString,
 } from 'class-validator';
 
-export class CreateLeadDto {
+export class UpdateLeadDto {
+  @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
 
+  @IsOptional()
   @IsString()
-  surname: string;
+  surname?: string;
 
   @IsOptional()
   @IsString()
   middleName?: string;
 
+  @IsOptional()
   @IsString()
-  email: string;
+  email?: string;
 
+  @IsOptional()
   @IsString()
-  phone: string;
+  phone?: string;
 
   @IsOptional()
   @IsInt()
@@ -71,12 +75,13 @@ export class CreateLeadDto {
   @IsString()
   statusEndDate?: string;
 
-  // ✅ recruiter должен быть строкой (ObjectId в виде строки)
-  @IsMongoId()
-  recruiter: string;
-
-  // ✅ statusId может быть строкой (ObjectId)
+  // ✅ Статус можно передавать (MongoId в виде строки)
   @IsOptional()
   @IsMongoId()
   statusId?: string;
+
+  // ✅ Можно передавать нового рекрутера
+  @IsOptional()
+  @IsMongoId()
+  recruiter?: string;
 }

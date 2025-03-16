@@ -154,6 +154,17 @@ export class UserService {
       { recruiter: admin._id }, // Присваиваем админа
     );
 
+    // Собираем все ID лидов, которые мы только что переназначили
+    const reassignedLeadIds = await this.leadModel
+      .find({ recruiter: admin._id }, { _id: 1 })
+      .lean()
+      .exec();
+
+    // Теперь добавляем их в массив leads админа
+    await this.userModel.findByIdAndUpdate(admin._id, {
+      $addToSet: { leads: { $each: reassignedLeadIds.map((doc) => doc._id) } },
+    });
+
     console.log(`✅ Лиды успешно перенесены к админу ${admin._id}`);
 
     // Удаляем пользователя

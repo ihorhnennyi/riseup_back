@@ -4,22 +4,15 @@ import {
   Controller,
   Delete,
   Get,
-  NotFoundException,
   Param,
   Post,
   Put,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { unlink } from 'fs/promises';
 import { Types } from 'mongoose';
-import * as multer from 'multer';
-import * as sharp from 'sharp';
-import { v4 as uuidv4 } from 'uuid';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateLeadDto } from './dto/create-lead.dto';
+import { UpdateLeadDto } from './dto/update-lead.dto';
 import { LeadService } from './lead.service';
 
 @Controller('leads')
@@ -27,166 +20,116 @@ import { LeadService } from './lead.service';
 export class LeadController {
   constructor(private readonly leadService: LeadService) {}
 
+  /**
+   * 📌 Создание нового лида
+   */
   @Post()
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: multer.memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
-  )
-  async createLead(
-    @Body('leadData') leadData: string,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
-    console.log('📦 Полученные данные:', leadData);
-    console.log('📷 Загруженный файл:', file);
+  async createLead(@Body() createLeadDto: CreateLeadDto) {
+    console.log('📦 Полученные данные для создания:', createLeadDto);
 
-    const createLeadDto: CreateLeadDto = JSON.parse(leadData);
-
+    // Проверяем recruiterId (обязательно поле)
     if (
       !createLeadDto.recruiter ||
       !Types.ObjectId.isValid(createLeadDto.recruiter)
     ) {
       throw new BadRequestException('Некорректный recruiterId');
     }
-    createLeadDto.recruiter = new Types.ObjectId(createLeadDto.recruiter);
 
-    if (
-      !createLeadDto.statusId ||
-      (typeof createLeadDto.statusId === 'string' &&
-        (createLeadDto.statusId as string).trim().length === 0)
-    ) {
-      delete createLeadDto.statusId; // Удаляем поле, если оно пустое
-    } else if (typeof createLeadDto.statusId === 'string') {
-      if (!Types.ObjectId.isValid(createLeadDto.statusId)) {
+    // Проверка statusId, если передан
+    if (createLeadDto.statusId) {
+      if (!Types.ObjectId.isValid(String(createLeadDto.statusId))) {
         throw new BadRequestException('Некорректный statusId');
       }
-      createLeadDto.statusId = new Types.ObjectId(createLeadDto.statusId);
-    } else if (createLeadDto.statusId instanceof Types.ObjectId) {
-      // Если statusId уже является ObjectId, ничего не делаем
+    } else {
+      delete createLeadDto.statusId;
     }
 
-    if (file && file.buffer) {
-      const webpFilename = `${uuidv4()}.webp`;
-      const webpPath = `./uploads/leads/${webpFilename}`;
-
-      try {
-        await sharp(file.buffer).toFormat('webp').toFile(webpPath);
-        createLeadDto.photo = `/uploads/leads/${webpFilename}`;
-      } catch (err) {
-        console.error('❌ Ошибка обработки изображения:', err);
-        throw new BadRequestException('Ошибка обработки изображения');
-      }
+    try {
+      console.log('📦 Данные перед отправкой в сервис:', createLeadDto);
+      const lead = await this.leadService.create(createLeadDto);
+      console.log('✅ Лид успешно создан:', lead);
+      return lead;
+    } catch (error) {
+      console.error('❌ Ошибка при создании лида:', error);
+      throw new BadRequestException('Ошибка создания лида');
     }
-
-    return this.leadService.create(createLeadDto);
   }
 
-  @Get('by-recruiter/:recruiterId')
-  findLeadsByRecruiter(@Param('recruiterId') recruiterId: string) {
-    return this.leadService.findLeadsByRecruiter(recruiterId);
-  }
-
+  /**
+   * 📌 Получение всех лидов
+   */
   @Get()
-  findAll() {
-    return this.leadService.findAll();
+  async findAll() {
+    console.log('🔍 Запрос на получение всех лидов');
+    return await this.leadService.findAll();
   }
 
+  /**
+   * 📌 Получение лида по ID
+   */
   @Get(':id')
   async findOne(@Param('id') id: string) {
-    console.log(`🔍 Получен запрос на получение лида с ID: ${id}`);
+    console.log(`📌 Запрос на получение лида с ID: ${id}`);
 
     if (!Types.ObjectId.isValid(id)) {
-      console.error(`❌ Неверный формат ID: ${id}`);
+      console.error(`❌ Ошибка: Неверный формат ID - ${id}`);
       throw new BadRequestException('Неверный формат ID');
     }
 
-    const lead = await this.leadService.findOne(id);
-    if (!lead) {
-      console.error(`❌ Лид с ID ${id} не найден!`);
-      throw new NotFoundException('Лид не найден');
+    try {
+      const lead = await this.leadService.findOne(id);
+      console.log(`✅ Лид найден:`, lead);
+      return lead;
+    } catch (error) {
+      console.error(`❌ Ошибка при получении лида:`, error);
+      throw new BadRequestException('Ошибка загрузки лида');
     }
-
-    console.log(`✅ Найден лид:`, lead);
-    return lead;
   }
 
-  @Delete(':id')
-  async remove(@Param('id') id: string) {
-    console.log(`🗑 Удаление лида с ID: ${id}`);
-
-    // 1️⃣ Проверяем, существует ли запись
-    const lead = await this.leadService.findOne(id);
-    if (!lead) {
-      console.error('❌ Ошибка: Лид не найден!');
-      throw new BadRequestException('Лид не найден');
-    }
-
-    // 2️⃣ Удаляем фото, если оно есть
-    if (lead.photo) {
-      const filePath = `.${lead.photo}`; // Пути хранятся как `/uploads/leads/...`
-      try {
-        await unlink(filePath); // ✅ Удаляем файл
-        console.log(`🗑 Файл удалён: ${filePath}`);
-      } catch (err) {
-        console.warn(`⚠️ Файл не найден или уже удалён: ${filePath}`);
-      }
-    }
-
-    // 3️⃣ Удаляем саму запись из БД
-    return this.leadService.remove(id);
-  }
-
+  /**
+   * 📌 Обновление лида
+   */
   @Put(':id')
-  @UseInterceptors(
-    FileInterceptor('photo', {
-      storage: multer.memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
-  )
   async updateLead(
     @Param('id') id: string,
-    @Body('leadData') leadData: string,
-    @UploadedFile() file?: Express.Multer.File,
+    @Body() updateLeadDto: UpdateLeadDto, // ✅ Используем новый DTO
   ) {
-    console.log('📦 Обновление лида:', leadData);
-    console.log('📷 Загруженный файл:', file);
+    console.log(`🔄 Обновление лида с ID: ${id}`, updateLeadDto);
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Неверный формат ID');
+    }
+    try {
+      const updatedLead = await this.leadService.update(id, updateLeadDto);
+      console.log('✅ Лид обновлён:', updatedLead);
+      return updatedLead;
+    } catch (error) {
+      console.error(`❌ Ошибка при обновлении лида с ID ${id}:`, error);
+      throw new BadRequestException('Ошибка обновления лида');
+    }
+  }
+  /**
+   * 📌 Удаление лида
+   */
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    console.log(`🗑 Запрос на удаление лида с ID: ${id}`);
+
+    console.log(`🗑 Проверяем ID перед удалением: ${id}`);
+    if (!Types.ObjectId.isValid(id)) {
+      console.error(`❌ Ошибка: Неверный формат ID - ${id}`);
+      throw new BadRequestException('Неверный формат ID');
+    }
 
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Неверный формат ID');
     }
-
-    const updateLeadDto: Partial<CreateLeadDto> = JSON.parse(leadData);
-
-    if (updateLeadDto.statusId) {
-      updateLeadDto.statusId = new Types.ObjectId(updateLeadDto.statusId);
+    try {
+      const result = await this.leadService.remove(id);
+      console.log(`✅ Лид с ID ${id} успешно удалён`);
+      return result;
+    } catch (error) {
+      console.error(`❌ Ошибка при удалении лида с ID ${id}:`, error);
+      throw new BadRequestException('Ошибка удаления лида');
     }
-
-    const lead = await this.leadService.findOne(id);
-    if (!lead) throw new NotFoundException('Лид не найден');
-
-    // ✅ Удаляем старое фото, если оно есть
-    if (lead.photo && file) {
-      try {
-        await unlink(`.${lead.photo}`);
-        console.log(`🗑 Старое фото удалено: ${lead.photo}`);
-      } catch (err) {
-        console.warn(`⚠️ Ошибка при удалении старого фото: ${lead.photo}`);
-      }
-    }
-
-    if (file) {
-      const webpFilename = `${uuidv4()}.webp`;
-      const webpPath = `./uploads/leads/${webpFilename}`;
-
-      try {
-        await sharp(file.buffer).toFormat('webp').toFile(webpPath);
-        updateLeadDto.photo = `/uploads/leads/${webpFilename}`;
-      } catch (err) {
-        throw new BadRequestException('Ошибка обработки изображения');
-      }
-    }
-
-    return this.leadService.update(id, updateLeadDto);
   }
 }

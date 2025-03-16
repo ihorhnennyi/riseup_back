@@ -20,7 +20,7 @@ export class Lead {
   @Prop()
   email?: string;
 
-  @Prop()
+  @Prop({ required: false, unique: true, sparse: true })
   phone?: string;
 
   @Prop()
@@ -60,7 +60,7 @@ export class Lead {
   @Prop({ type: Date, required: false })
   statusEndDate?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true }) // ✅ ref: 'User'
   recruiter: Types.ObjectId;
 }
 

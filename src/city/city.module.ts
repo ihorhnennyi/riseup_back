@@ -8,7 +8,7 @@ import { City, CitySchema } from './schemas/city.schema';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: City.name, schema: CitySchema }]),
-    AuthModule,
+    AuthModule, // ✅ Импортируем `AuthModule`, убираем `JwtModule.register({...})`
   ],
   controllers: [CityController],
   providers: [CityService],

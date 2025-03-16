@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { UserRole } from '../enum/user-role.enum';
 import { AuthRegisterDto } from './dto/auth-register.dto';
 import { User, UserDocument } from './schemas/user.schema';
@@ -26,13 +26,18 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     const newUser = new this.userModel({
+      _id: new Types.ObjectId(), // 🔥 Добавляем ID вручную, если MongoDB его не создаёт
       firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
       email: dto.email,
       password: hashedPassword,
-      role: roleToAssign,
+      role: dto.role || UserRole.RECRUITER,
     });
 
     await newUser.save();
+    // Теперь MongoDB сам создаст _id
+
     this.logger.log(
       `🆕 Пользователь зарегистрирован: ${dto.email}, Роль: ${roleToAssign}`,
     );
