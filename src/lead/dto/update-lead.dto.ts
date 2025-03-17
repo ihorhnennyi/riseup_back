@@ -80,8 +80,7 @@ export class UpdateLeadDto {
   @IsMongoId()
   statusId?: string;
 
-  // ✅ Можно передавать нового рекрутера
   @IsOptional()
-  @IsMongoId()
+  @IsString()
   recruiter?: string;
 }

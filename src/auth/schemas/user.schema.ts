@@ -6,7 +6,7 @@ export type UserDocument = User & Document;
 
 @Schema()
 export class User {
-  @Prop({ type: Types.ObjectId, auto: true }) // ✅ Теперь MongoDB сам создает _id
+  @Prop({ type: Types.ObjectId, auto: true })
   _id?: Types.ObjectId;
 
   @Prop({ required: true })
@@ -66,7 +66,7 @@ export class User {
   @Prop()
   refreshToken?: string;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Lead' }] })
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Lead' }] }) // 👈 Важно: ref должен быть 'Lead'
   leads: Types.ObjectId[];
 }
 

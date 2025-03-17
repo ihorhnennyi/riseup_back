@@ -60,7 +60,7 @@ export class Lead {
   @Prop({ type: Date, required: false })
   statusEndDate?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true }) // ✅ ref: 'User'
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   recruiter: Types.ObjectId;
 }
 

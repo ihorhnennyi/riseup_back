@@ -101,12 +101,72 @@ export class LeadService {
     return newLead;
   }
 
-  /**
-   * 📌 Получение всех лидов
-   */
-  async findAll(): Promise<Lead[]> {
-    console.log('🔍 Запрос на получение всех лидов');
-    return this.leadModel.find().populate('statusId').exec();
+  async findAll(
+    currentUser: UserDocument,
+  ): Promise<Pick<Lead, '_id' | 'recruiter'>[]> {
+    console.log(`🔍 Запрос на получение всех лидов от ${currentUser.role}`);
+
+    // **✅ Проверяем, есть ли у пользователя `id`**
+    if (!currentUser.id) {
+      console.error('❌ Ошибка: currentUser.id отсутствует!');
+      return [];
+    }
+
+    const currentUserId = new Types.ObjectId(currentUser.id); // ✅ Приводим к
+
+    // **1️⃣ Фильтруем лидов по роли**
+    const allLeads = await this.leadModel.find().select('_id recruiter').exec();
+
+    console.log('🔍 allLeads:', allLeads);
+
+    // **2️⃣ Фильтрация по рекрутеру**
+    const filteredLeads =
+      currentUser.role === 'recruiter'
+        ? allLeads.filter((lead) => {
+            if (!lead.recruiter) return false;
+            const leadRecruiterId = lead.recruiter.toString();
+            console.log(
+              '🔎 Сравниваем recruiter:',
+              leadRecruiterId,
+              'с',
+              currentUserId.toString(),
+            );
+            return leadRecruiterId === currentUserId.toString();
+          })
+        : allLeads;
+
+    console.log('✅ Отфильтрованные лиды:', filteredLeads);
+
+    // **3️⃣ Получаем список уникальных recruiterId**
+    const recruiterIds = filteredLeads.map((lead) => lead.recruiter.toString());
+    console.log('🔍 recruiterIds для запроса:', recruiterIds);
+
+    console.log('🔍 recruiterIds:', recruiterIds);
+
+    // **4️⃣ Запрашиваем рекрутеров**
+    const recruiterIdsAsObjectId = recruiterIds.map(
+      (id) => new Types.ObjectId(id),
+    );
+
+    const recruiters = await this.userModel
+      .find({ _id: { $in: recruiterIdsAsObjectId } }) // 👈 Теперь Mongo должно находить ID
+      .select('_id')
+      .exec();
+
+    console.log('✅ recruiters после запроса:', recruiters);
+
+    // **5️⃣ Создаём `Map` для быстрого доступа**
+    const recruiterMap = new Map(
+      recruiters.map((recruiter) => [recruiter._id.toString(), recruiter._id]),
+    );
+
+    console.log('📌 recruiterMap:', recruiterMap);
+
+    // **6️⃣ Формируем результат**
+    return filteredLeads.map((lead) => ({
+      _id: new Types.ObjectId(lead._id),
+      recruiter: recruiterMap.get(lead.recruiter.toString()) ?? null, // ✅ Гарантия, что ID есть
+    })) as Pick<Lead, '_id' | 'recruiter'>[];
   }
 
   /**
@@ -135,52 +195,72 @@ export class LeadService {
     return lead;
   }
 
-  /**
-   * 📌 Обновление лида
-   */
   async update(id: string, updateLeadDto: UpdateLeadDto): Promise<Lead> {
     console.log(`🔄 Обновление лида с ID: ${id}`, updateLeadDto);
 
-    // Проверяем корректность ID
     if (!Types.ObjectId.isValid(id)) {
       throw new BadRequestException('Неверный формат ID');
     }
 
     const objectId = new Types.ObjectId(id);
+    const existingLead = await this.leadModel.findById(objectId);
 
-    // Создаём новый объект без _id
-    const updateData = { ...updateLeadDto };
-    delete (updateData as any)._id; // Удаляем _id, если он вдруг передан
-
-    // Преобразуем statusId, если передан
-    if (updateData.statusId) {
-      if (!Types.ObjectId.isValid(updateData.statusId)) {
-        throw new BadRequestException('Некорректный statusId');
-      }
-      updateData.statusId = new Types.ObjectId(updateData.statusId) as any; // ✅ Добавили `as any`
-    }
-
-    // Преобразуем recruiter, если передан
-    if (updateData.recruiter) {
-      if (!Types.ObjectId.isValid(updateData.recruiter)) {
-        throw new BadRequestException('Некорректный recruiter');
-      }
-      updateData.recruiter = new Types.ObjectId(updateData.recruiter) as any; // ✅ Добавили `as any`
-    }
-
-    // Выполняем обновление
-    const updatedLead = await this.leadModel
-      .findByIdAndUpdate(objectId, { $set: updateData }, { new: true })
-      .populate('recruiter') // ✅ Теперь должен подтягиваться рекрутер
-      .exec();
-
-    if (!updatedLead) {
-      console.error(`❌ Ошибка: Лид с ID ${id} не найден`);
+    if (!existingLead) {
       throw new NotFoundException('Лид не найден');
     }
 
-    console.log('✅ Лид успешно обновлён:', updatedLead);
-    return updatedLead;
+    const oldRecruiterId = existingLead.recruiter
+      ? new Types.ObjectId(existingLead.recruiter)
+      : null;
+    const newRecruiterId = new Types.ObjectId(updateLeadDto.recruiter);
+
+    console.log(`📌 Старый рекрутер:`, oldRecruiterId?.toString());
+    console.log(`📌 Новый рекрутер:`, newRecruiterId.toString());
+
+    // Проверяем существование нового рекрутера
+    const newRecruiter = await this.userModel.findById(newRecruiterId);
+    if (!newRecruiter) {
+      throw new NotFoundException('Новый рекрутер не найден');
+    }
+
+    // 1️⃣ **Удаляем лида у старого рекрутера, если он меняется**
+    if (oldRecruiterId && !oldRecruiterId.equals(newRecruiterId)) {
+      console.log(
+        `🗑 Удаляем лида ${id} из старого рекрутера ${oldRecruiterId}`,
+      );
+
+      await this.userModel.updateOne(
+        { _id: oldRecruiterId },
+        { $pull: { leads: objectId } },
+      );
+
+      // Проверяем, остались ли лиды у старого рекрутера
+      const oldRecruiter = await this.userModel.findById(oldRecruiterId);
+      if (!oldRecruiter?.leads || oldRecruiter.leads.length === 0) {
+        console.log(`⚠️ leads у старого рекрутера пуст, создаём массив.`);
+        await this.userModel.updateOne(
+          { _id: oldRecruiterId },
+          { $set: { leads: [] } },
+        );
+      }
+    }
+
+    // 2️⃣ **Обновляем рекрутера у лида вручную**
+    console.log(`✏️ Меняем рекрутера у лида...`);
+    existingLead.recruiter = newRecruiterId;
+    await existingLead.save();
+
+    console.log(`✅ Лид обновлён:`, existingLead);
+
+    // 3️⃣ **Добавляем лида в массив нового рекрутера**
+    console.log(`➕ Добавляем лида ${id} в нового рекрутера ${newRecruiterId}`);
+
+    await this.userModel.updateOne(
+      { _id: newRecruiterId },
+      { $addToSet: { leads: existingLead._id } },
+    );
+
+    return existingLead;
   }
 
   /**
@@ -197,7 +277,7 @@ export class LeadService {
 
     const objectId = new Types.ObjectId(id);
 
-    // 🔍 Находим лида перед удалением, чтобы узнать его рекрутера
+    // 🔍 Находим лида перед удалением
     const lead = await this.leadModel.findById(objectId);
     if (!lead) {
       console.error(`❌ Ошибка: Лид с ID ${id} не найден`);
@@ -205,6 +285,21 @@ export class LeadService {
     }
 
     console.log(`🔍 Найден кандидат:`, lead);
+
+    // 🔄 Удаляем лид из массива leads у рекрутера перед удалением самого лида
+    if (lead.recruiter) {
+      console.log(
+        `🔄 Удаляем ID ${id} из массива leads рекрутера ${lead.recruiter}`,
+      );
+
+      await this.userModel
+        .findByIdAndUpdate(
+          lead.recruiter,
+          { $pull: { leads: objectId } },
+          { new: true },
+        )
+        .exec();
+    }
 
     // 🗑 Удаляем лида
     const deleteResult = await this.leadModel
@@ -215,20 +310,7 @@ export class LeadService {
       throw new NotFoundException('Лид не найден');
     }
 
-    console.log(`✅ Лид с ID ${id} успешно удалён`);
-
-    // 🔄 Обновляем рекрутера (удаляем лид из массива leads)
-    console.log(
-      `🔄 Удаляем ID ${id} из массива leads рекрутера ${lead.recruiter}`,
-    );
-
-    await this.userModel.findByIdAndUpdate(
-      lead.recruiter,
-      { $pull: { leads: objectId } }, // ❌ Удаляем ID лида из массива leads
-      { new: true },
-    );
-
-    console.log(`✅ Лид удалён из массива рекрутера`);
+    console.log(`✅ Лид с ID ${id} успешно удалён из базы данных`);
 
     return { message: 'Лид удалён' };
   }

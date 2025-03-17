@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Types } from 'mongoose';
@@ -14,6 +15,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { LeadService } from './lead.service';
+import { Lead } from './schemas/lead.schema';
 
 @Controller('leads')
 @UseGuards(JwtAuthGuard)
@@ -59,9 +61,9 @@ export class LeadController {
    * 📌 Получение всех лидов
    */
   @Get()
-  async findAll() {
-    console.log('🔍 Запрос на получение всех лидов');
-    return await this.leadService.findAll();
+  async getAllLeads(@Req() req): Promise<Partial<Lead>[]> {
+    const currentUser = req.user; // 🔥 Получаем пользователя из запроса
+    return this.leadService.findAll(currentUser);
   }
 
   /**
