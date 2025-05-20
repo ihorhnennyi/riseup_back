@@ -96,6 +96,15 @@ export class UpdateCandidateDto {
   status?: string;
 
   @ApiProperty({
+    example: '652c5c7a7c9e4e3b2a7a72b7',
+    description: 'ID статусу перезвону',
+    required: false,
+  })
+  @IsOptional()
+  @IsMongoId({ message: 'Некорректний ID статусу перезвону' })
+  callbackStatus?: string;
+
+  @ApiProperty({
     example: 'Кандидат не відповідає на дзвінки',
     description: 'Коментар до кандидата',
     required: false,

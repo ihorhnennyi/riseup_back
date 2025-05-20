@@ -42,6 +42,9 @@ export class Candidate extends Document {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Status', required: false })
   status: Types.ObjectId;
 
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Status', required: false })
+  callbackStatus?: Types.ObjectId;
+
   @Prop({ trim: true })
   comment?: string;
 
